@@ -49,7 +49,7 @@ BEAR = {'health': 100, 'strength': 5, 'idleImg': bearIdleImg, 'attacks' : ['scra
 
 class Tortoise :
     startingHealth = 100
-    screenPos = TORTOISESCREENPOS
+    SCREENPOSX, SCREENPOSY = TORTOISESCREENPOS
     incomingDamage = 0
 
     def __init__(self):
@@ -57,12 +57,7 @@ class Tortoise :
         self.img = TORTOISE['idleImg']
         self.attacks = self.generateAttacksList
         self.isBlocking = False
-        self.lastHealth = 0
-
-        self.healthBar = pygame.Surface((220, 40))
-        self.healthBar.fill(BLACK)
-        self.healthBarRed = pygame.Surface((200, 20))
-        self.healthBarRed.fill(RED)
+        self.initUI()
 
     def generateAttacksList(self):
         return['bite', 'headbutt']
@@ -74,17 +69,27 @@ class Tortoise :
         self.lastHealth = self.health
 
     def draw(self, screen):
-        screen.blit(self.img, Tortoise.screenPos)
-        self.drawUI(screen)
+        screen.blit(self.img, TORTOISESCREENPOS)
+        self.updateUI(screen)
 
-    def drawUI(self, screen):
+    def initUI(self):
+        self.lastHealth = 0
+        self.healthBar = pygame.Surface((100, 10))
+        self.healthBar.fill(BLACK)
+        self.healthBarRed = pygame.Surface((98, 8))
+        self.healthBarRed.fill(RED)
+        self.healthText = Button('Tortoise health:', 0, (5, WINDOWHEIGHT - 25))
+        
+    def updateUI(self, screen):
         # HEALTH BAR
         if self.health != self.lastHealth:
-            self.healthBar.blit(self.healthBarRed, (10, 10))
+            self.healthBar.blit(self.healthBarRed, (1, 1))
             self.healthBarGreen = pygame.Surface((int((self.healthBarRed.get_width() / TORTOISE['health']) * self.health), \
                                                  int(self.healthBarRed.get_height())))
-            self.healthBar.blit(self.healthBarGreen(10, 10))
-        
+            self.healthBarGreen.fill(GREEN)
+            self.healthBar.blit(self.healthBarGreen, (1, 1))
+            screen.blit(self.healthBar, (5, WINDOWHEIGHT - 15))
+            self.healthText.simulate(screen)
 
     def block(self, turn, userInput):
         if turn == 'enemy':
@@ -144,10 +149,10 @@ class Button:
     def __init__(self, text, style, screenPos, isClickable=0, isTitle=0):
         self.text, self.style, self.screenPos, self.isClickable = \
         (text, style, screenPos, isClickable)
-        if not isTitle:
-            self.textSurf = BASICFONT.render(self.text, 1, WHITE)
         if isTitle:
             self.textSurf = BIGFONT.render(self.text, 1, LIGHTGREY)
+        else:
+            self.textSurf = BASICFONT.render(self.text, 1, WHITE)
 
         self.rect = Rect(self.screenPos, self.textSurf.get_size())
             
@@ -168,13 +173,13 @@ class Button:
             
 
     def simulate(self, screen, userInput):
-        self.handleClicks(userInput)
+        if self.isClickable: self.handleClicks(userInput)
         self.draw(screen)
 
     def draw(self, screen):
         screen.blit(self.currentSurf, self.screenPos)
 
-    def handleClicks(self, userInput):
+    def handleClicks(self, userInput=None):
         self.isClicked = False
         if self.rect.collidepoint(userInput.mousePos):
             if userInput.mousePressed == True:
