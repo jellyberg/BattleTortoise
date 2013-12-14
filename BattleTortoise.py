@@ -78,7 +78,7 @@ class Tortoise :
         self.healthBar.fill(BLACK)
         self.healthBarRed = pygame.Surface((98, 8))
         self.healthBarRed.fill(RED)
-        self.healthText = Button('Tortoise health:', 0, (5, WINDOWHEIGHT - 25))
+        self.healthText = Button('Tortoise health:', 0, (5, WINDOWHEIGHT - 35))
         
     def updateUI(self, screen):
         # HEALTH BAR
@@ -88,8 +88,8 @@ class Tortoise :
                                                  int(self.healthBarRed.get_height())))
             self.healthBarGreen.fill(GREEN)
             self.healthBar.blit(self.healthBarGreen, (1, 1))
-            screen.blit(self.healthBar, (5, WINDOWHEIGHT - 15))
-            self.healthText.simulate(screen)
+        screen.blit(self.healthBar, (5, WINDOWHEIGHT - 15))
+        self.healthText.simulate(screen, None)
 
     def block(self, turn, userInput):
         if turn == 'enemy':
