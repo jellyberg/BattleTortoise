@@ -13,7 +13,7 @@ screen = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
 pygame.display.set_caption('Battle tortoise')
 
 BASICFONT = pygame.font.Font('freesansbold.ttf', 12)
-BIGFONT   = pygame.font.Font('freesansbold.ttf', 36)
+BIGFONT   = pygame.font.Font('fontTitle.ttf', 36)
 
 TORTOISESCREENPOS = (int(WINDOWWIDTH / 4),     int((WINDOWHEIGHT / 3) * 2))
 ENEMYSCREENPOS =    (int((WINDOWWIDTH / 3) * 2), int(WINDOWHEIGHT / 30))
@@ -27,7 +27,7 @@ bearIdleImg = pygame.image.load('bearIdle1.png')
 WHITE     = (255, 255, 255)
 BLACK     = (  0,   0,   0)
 RED       = (255,   0,   0)
-DARKRED   = (255,  10,  10)
+DARKRED   = (220,   0,   0)
 BLUE      = (  0,   0, 255)
 GREEN     = (  0, 255,   0)
 ORANGE    = (255, 165,   0)
@@ -42,7 +42,10 @@ BLOCKKEY = K_SPACE
 # ALL MOBS STATS
 TORTOISE = {'health': 100, 'strength': 3, 'idleImg': tortoiseIdleImg, 'blockImg': tortoiseBlockImg}
 BEAR = {'health': 100, 'strength': 5, 'idleImg': bearIdleImg, 'attacks' : ['scratch', 'claw', 'bite']}
-             
+
+BLOCKEFFECTIVENESS = 4 # smaller number = more effective
+RANDOMDAMAGEMARGIN = 3
+    
 
 
 
@@ -64,8 +67,10 @@ class Tortoise :
 
     def simulate(self, turn, screen, userInput):
         self.block(turn, userInput)
+        self.takeDamage()
         self.handleImg()
         self.draw(screen)
+        self.checkForLoss()
         self.lastHealth = self.health
 
     def draw(self, screen):
@@ -73,6 +78,7 @@ class Tortoise :
         self.updateUI(screen)
 
     def initUI(self):
+        # HEALTH BAR
         self.lastHealth = 0
         self.healthBar = pygame.Surface((100, 10))
         self.healthBar.fill(BLACK)
@@ -83,6 +89,7 @@ class Tortoise :
     def updateUI(self, screen):
         # HEALTH BAR
         if self.health != self.lastHealth:
+            if self.health < 0: self.health = 0
             self.healthBar.blit(self.healthBarRed, (1, 1))
             self.healthBarGreen = pygame.Surface((int((self.healthBarRed.get_width() / TORTOISE['health']) * self.health), \
                                                  int(self.healthBarRed.get_height())))
@@ -90,6 +97,15 @@ class Tortoise :
             self.healthBar.blit(self.healthBarGreen, (1, 1))
         screen.blit(self.healthBar, (5, WINDOWHEIGHT - 15))
         self.healthText.simulate(screen, None)
+
+    def takeDamage(self):
+        damage = Tortoise.incomingDamage
+        if damage:
+            if self.isBlocking:
+                damage -= int(damage / BLOCKEFFECTIVENESS)
+            self.health -= damage
+            print('ouch!')
+            Tortoise.incomingDamage = 0
 
     def block(self, turn, userInput):
         if turn == 'enemy':
@@ -104,6 +120,11 @@ class Tortoise :
             self.img = TORTOISE['blockImg']
         else:
             self.img = TORTOISE['idleImg']
+
+    def checkForLoss(self):
+        if self.health <= 0:
+            print('You lose!')
+            pygame.time.wait(1000)
                     
 
 
@@ -123,11 +144,17 @@ class Enemy:
         if creature == 'BEAR':
             self.img = BEAR['idleImg']
             self.attacks = BEAR['attacks']
+        self.genAttacks()
+        self.initUI()
 
     def simulate(self, turn, screen):
         self.handleImg()
         self.draw(screen)
-        self.attack
+        if turn == 'enemy':
+            self.attack()
+        self.updateUI(screen)
+        if turn == 'enemy':
+            return 'tortoise'
 
     def handleImg(self):
         if self.creature == 'BEAR':
@@ -136,12 +163,33 @@ class Enemy:
     def draw(self, screen):
         screen.blit(self.img, Enemy.screenPos)
 
+    def initUI(self):
+        self.lastHealth = 0
+        self.healthBar = pygame.Surface((100, 10))
+        self.healthBar.fill(BLACK)
+        self.healthBarRed = pygame.Surface((98, 8))
+        self.healthBarRed.fill(RED)
+        self.healthText = Button('Enemy health:', 0, (WINDOWWIDTH - 5 - self.healthBar.get_width(), WINDOWHEIGHT - 35))
+        
+    def updateUI(self, screen):
+        # HEALTH BAR
+        if self.health != self.lastHealth:
+            self.healthBar.blit(self.healthBarRed, (1, 1))
+            self.healthBarGreen = pygame.Surface((int((self.healthBarRed.get_width() / self.startingHealth) * self.health), \
+                                                 int(self.healthBarRed.get_height())))
+            self.healthBarGreen.fill(GREEN)
+            self.healthBar.blit(self.healthBarGreen, (1, 1))
+        screen.blit(self.healthBar, (WINDOWWIDTH - 5 - self.healthBar.get_width(), WINDOWHEIGHT - 15))
+        self.healthText.simulate(screen, None)
+
     def genAttacks(self):
         self.numAttacks = len(self.attacks)
 
     def attack(self):
         attackNum = random.randint(0, self.numAttacks - 1)
-        damage = attackNum * self.strength
+        damage = attackNum * self.strength + random.randint(-RANDOMDAMAGEMARGIN, RANDOMDAMAGEMARGIN)
+        Tortoise.incomingDamage = damage
+        print('take this!')
 
 
         
@@ -154,21 +202,22 @@ class Button:
         else:
             self.textSurf = BASICFONT.render(self.text, 1, WHITE)
 
-        self.rect = Rect(self.screenPos, self.textSurf.get_size())
-            
-        self.buttonSurf = pygame.Surface(self.textSurf.get_size())
+        self.padding = 6 # will be controlled by 'style' eventually
+        self.buttonSurf = pygame.Surface((self.textSurf.get_width() + self.padding, self.textSurf.get_height() + self.padding))
         self.buttonSurf.fill(BLUE)
-        self.buttonSurf.blit(self.textSurf, (0, 0))
+        self.buttonSurf.blit(self.textSurf, (int(self.padding /2), int(self.padding /2)))
         self.currentSurf = self.buttonSurf
+
+        self.rect = Rect(self.screenPos, self.buttonSurf.get_size())
 
         if isClickable:
             self.hoverSurf = pygame.Surface(self.buttonSurf.get_size())
-            self.hoverSurf.fill(DARKRED)
-            self.hoverSurf.blit(self.textSurf, (0, 0))
+            self.hoverSurf.fill(RED)
+            self.hoverSurf.blit(self.textSurf, (int(self.padding /2), int(self.padding /2)))
 
             self.clickSurf = pygame.Surface(self.buttonSurf.get_size())
-            self.clickSurf.fill(BLACK)
-            self.clickSurf.blit(self.textSurf, (0, 0))
+            self.clickSurf.fill(DARKRED)
+            self.clickSurf.blit(self.textSurf, (int(self.padding /2), int(self.padding /2)))
             self.isClicked = False
             
 
@@ -184,11 +233,12 @@ class Button:
         if self.rect.collidepoint(userInput.mousePos):
             if userInput.mousePressed == True:
                 self.currentSurf = self.clickSurf
-                self.isClicked = True
             else:
                 self.currentSurf = self.hoverSurf
         else:
             self.currentSurf = self.buttonSurf
+        if userInput.mouseUnpressed == True:
+            self.isClicked = True
 
 
 
@@ -196,9 +246,11 @@ class Input:
     def __init__(self):
         Input.pressedKeys = []
         Input.mousePressed = False
+        Input.mouseUnpressed = False
         Input.mousePos = (0, 0)
         
     def get(self):
+        Input.mouseUnpressed = False
         for event in pygame.event.get():
             if event.type == QUIT or (event.type == KEYUP and event.key == K_ESCAPE):
                 pygame.event.post(event)
@@ -212,8 +264,10 @@ class Input:
                 Input.mousePos = event.pos
             elif event.type == MOUSEBUTTONDOWN:
                 Input.mousePressed = True
+                Input.mouseUnpressed = False
             elif event.type == MOUSEBUTTONUP:
                 Input.mousePressed = False
+                Input.mouseUnpressed = True
                         
     
 
@@ -227,17 +281,22 @@ def runGame():
     userInput = Input()
     tortoise = Tortoise()
     enemy = Enemy('BEAR', random.randint(3, 5), 50)
-    button1 = Button('A groovy button.', 0, (50, 50), 1, 0)
-    UIelements = [button1]
+    skipTurnButton = Button('Skip turn', 0, (50, 50), 1, 0)
+    buttons = [skipTurnButton]
+    turn = 'enemy'
     while True: # main game loop
         userInput.get()
-        turn = 'enemy'
         screen.blit(backgroundImg, (0,0))
         tortoise.simulate(turn, screen, userInput)
-        enemy.simulate(turn, screen)
+        turn = enemy.simulate(turn, screen)
 
-        for element in UIelements:
-            element.simulate(screen, userInput)
+        for button in buttons:
+            button.simulate(screen, userInput)
+        if skipTurnButton.isClicked:
+            if turn == 'tortoise': turn = 'enemy'
+            else: turn = 'tortoise'
+            print('click!')
+        updateLiveElements(screen, turn)
         
         
         pygame.display.update()
@@ -245,6 +304,18 @@ def runGame():
         FPSCLOCK.tick(FPS)
 
         
+def genText(text, topLeftPos, colour, isTitle):
+    if isTitle:
+        font = BIGFONT
+    else: font = BASICFONT
+    surf = font.render(text, 1, colour)
+    rect = surf.get_rect()
+    rect.topleft = topLeftPos
+    return (surf, rect)
+
+def updateLiveElements(screen, turn):
+    pass
+    
 
 def checkForQuit():
     for event in pygame.event.get(QUIT): # get all the QUIT events
