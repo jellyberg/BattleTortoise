@@ -125,7 +125,7 @@ class Tortoise :
         if self.health <= 0:
             print('You lose!')
             pygame.time.wait(1000)
-                    
+
 
 
 class Enemy:
@@ -268,7 +268,7 @@ class Input:
             elif event.type == MOUSEBUTTONUP:
                 Input.mousePressed = False
                 Input.mouseUnpressed = True
-                        
+
     
 
 
@@ -278,6 +278,8 @@ def main():
 
 
 def runGame():
+    global screen
+    
     userInput = Input()
     tortoise = Tortoise()
     enemy = Enemy('BEAR', random.randint(3, 5), 50)
@@ -293,10 +295,13 @@ def runGame():
         for button in buttons:
             button.simulate(screen, userInput)
         if skipTurnButton.isClicked:
-            if turn == 'tortoise': turn = 'enemy'
-            else: turn = 'tortoise'
-            print('click!')
-        updateLiveElements(screen, turn)
+            if turn == 'tortoise':
+                turn = 'enemy'
+                print('switch to enemy!')
+            else:
+                turn = 'tortoise'
+                print('switch to tortoise!')
+        screen = updateLiveElements(screen, turn)
         
         
         pygame.display.update()
@@ -304,7 +309,7 @@ def runGame():
         FPSCLOCK.tick(FPS)
 
         
-def genText(text, topLeftPos, colour, isTitle):
+def genText(text, topLeftPos, colour, isTitle=0):
     if isTitle:
         font = BIGFONT
     else: font = BASICFONT
@@ -314,7 +319,9 @@ def genText(text, topLeftPos, colour, isTitle):
     return (surf, rect)
 
 def updateLiveElements(screen, turn):
-    pass
+    turnSurf, turnRect = genText(turn, (int(WINDOWWIDTH / 10) * 8, 50), WHITE)
+    screen.blit(turnSurf, turnRect)
+    return screen.copy()
     
 
 def checkForQuit():
