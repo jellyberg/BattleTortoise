@@ -18,23 +18,23 @@ BIGFONT   = pygame.font.Font('fontTitle.ttf', 36)
 TORTOISESCREENPOS = (int(WINDOWWIDTH / 4),     int((WINDOWHEIGHT / 3) * 2))
 ENEMYSCREENPOS =    (int((WINDOWWIDTH / 3) * 2), int(WINDOWHEIGHT / 30))
 
-backgroundImg = pygame.image.load('beachBackground.png')
-tortoiseIdleImg = pygame.image.load('tortoiseIdle1.png')
-tortoiseBlockImg = pygame.image.load('tortoiseBlock1.png')
-bearIdleImg = pygame.image.load('bearIdle1.png')
+backgroundImg = pygame.image.load('beachBackground.png').convert()
+tortoiseIdleImg = pygame.image.load('tortoiseIdle1.png').convert_alpha()
+tortoiseBlockImg = pygame.image.load('tortoiseBlock1.png').convert_alpha()
+bearIdleImg = pygame.image.load('bearIdle1.png').convert_alpha()
 
-# Colours     R    G    B
-WHITE     = (255, 255, 255)
-BLACK     = (  0,   0,   0)
-RED       = (255,   0,   0)
-DARKRED   = (220,   0,   0)
-BLUE      = (  0,   0, 255)
-GREEN     = (  0, 255,   0)
-ORANGE    = (255, 165,   0)
-DARKGREEN = (  0, 155,   0)
-DARKGREY  = ( 60,  60,  60)
-LIGHTGREY = (180, 180, 180)
-BROWN     = (139,  69,  19)
+# Colours     R    G    B  ALPHA
+WHITE     = (255, 255, 255, 255)
+BLACK     = (  0,   0,   0, 255)
+RED       = (255,   0,   0, 255)
+DARKRED   = (220,   0,   0, 255)
+BLUE      = (  0,   0, 255, 255)
+GREEN     = (  0, 255,   0, 255)
+ORANGE    = (255, 165,   0, 255)
+DARKGREEN = (  0, 155,   0, 255)
+DARKGREY  = ( 60,  60,  60, 255)
+LIGHTGREY = (180, 180, 180, 255)
+BROWN     = (139,  69,  19, 255)
 
 # KEYBINDINGS
 BLOCKKEY = K_SPACE
@@ -44,7 +44,7 @@ TORTOISE = {'health': 100, 'strength': 3, 'idleImg': tortoiseIdleImg, 'blockImg'
 BEAR = {'health': 100, 'strength': 5, 'idleImg': bearIdleImg, 'attacks' : ['scratch', 'claw', 'bite']}
 
 BLOCKEFFECTIVENESS = 4 # smaller number = more effective
-RANDOMDAMAGEMARGIN = 3
+RANDOMDAMAGEMARGIN = 2
     
 
 
@@ -56,8 +56,9 @@ class Tortoise :
     incomingDamage = 0
 
     def __init__(self):
-        self.health = TORTOISE['health']
         self.img = TORTOISE['idleImg']
+        self.rect = Rect((TORTOISESCREENPOS), (self.img.get_size()))
+        self.health = TORTOISE['health']
         self.attacks = self.generateAttacksList
         self.isBlocking = False
         self.initUI()
@@ -74,7 +75,7 @@ class Tortoise :
         self.lastHealth = self.health
 
     def draw(self, screen):
-        screen.blit(self.img, TORTOISESCREENPOS)
+        screen.blit(self.img, self.rect)
         self.updateUI(screen)
 
     def initUI(self):
@@ -85,6 +86,10 @@ class Tortoise :
         self.healthBarRed = pygame.Surface((98, 8))
         self.healthBarRed.fill(RED)
         self.healthText = Button('Tortoise health:', 0, (5, WINDOWHEIGHT - 35))
+
+        # DAMAGE NUMBERS
+        self.damageNums = []
+        self.dmgNumPos = (self.rect.centerx, self.rect.top - 10)
         
     def updateUI(self, screen):
         # HEALTH BAR
@@ -98,14 +103,21 @@ class Tortoise :
         screen.blit(self.healthBar, (5, WINDOWHEIGHT - 15))
         self.healthText.simulate(screen, None)
 
+        # DAMAGE NUMBERS
+        for num in self.damageNums:
+            num.simulate(screen)
+
     def takeDamage(self):
         damage = Tortoise.incomingDamage
-        if damage:
+        if damage > 0:
             if self.isBlocking:
                 damage -= int(damage / BLOCKEFFECTIVENESS)
             self.health -= damage
-            print('ouch!')
             Tortoise.incomingDamage = 0
+            dmgNum = DamageNum(damage, self.dmgNumPos, RED)
+            self.damageNums.append(dmgNum)
+        else:
+            dmgNum = DamageNum('MISS!', self.dmgNumPos, GREEN)
 
     def block(self, turn, userInput):
         if turn == 'enemy':
@@ -155,6 +167,8 @@ class Enemy:
         self.updateUI(screen)
         if turn == 'enemy':
             return 'tortoise'
+        else:
+            return 'tortoise'
 
     def handleImg(self):
         if self.creature == 'BEAR':
@@ -189,7 +203,6 @@ class Enemy:
         attackNum = random.randint(0, self.numAttacks - 1)
         damage = attackNum * self.strength + random.randint(-RANDOMDAMAGEMARGIN, RANDOMDAMAGEMARGIN)
         Tortoise.incomingDamage = damage
-        print('take this!')
 
 
         
@@ -201,25 +214,24 @@ class Button:
             self.textSurf = BIGFONT.render(self.text, 1, LIGHTGREY)
         else:
             self.textSurf = BASICFONT.render(self.text, 1, WHITE)
-
+        # CREATE BASIC SURF
         self.padding = 6 # will be controlled by 'style' eventually
         self.buttonSurf = pygame.Surface((self.textSurf.get_width() + self.padding, self.textSurf.get_height() + self.padding))
         self.buttonSurf.fill(BLUE)
         self.buttonSurf.blit(self.textSurf, (int(self.padding /2), int(self.padding /2)))
         self.currentSurf = self.buttonSurf
-
         self.rect = Rect(self.screenPos, self.buttonSurf.get_size())
-
+        # CREATE ADDITIONAL SURFS
         if isClickable:
+            # MOUSE HOVER
             self.hoverSurf = pygame.Surface(self.buttonSurf.get_size())
             self.hoverSurf.fill(RED)
             self.hoverSurf.blit(self.textSurf, (int(self.padding /2), int(self.padding /2)))
-
+            # MOUSE CLICK
             self.clickSurf = pygame.Surface(self.buttonSurf.get_size())
             self.clickSurf.fill(DARKRED)
             self.clickSurf.blit(self.textSurf, (int(self.padding /2), int(self.padding /2)))
             self.isClicked = False
-            
 
     def simulate(self, screen, userInput):
         if self.isClickable: self.handleClicks(userInput)
@@ -240,6 +252,27 @@ class Button:
         if userInput.mouseUnpressed == True:
             self.isClicked = True
 
+
+
+
+class DamageNum:
+    def __init__(self, number, roughPos, roughColor):
+        self.num = number
+        roughx, roughy = roughPos
+        self.x = roughx + random.randint(-10, 10)
+        self.y = roughy
+        r, g, b, a = roughColor
+        self.color = pygame.Color(r, g, b, a)
+
+    def simulate(self, screen):
+        if self.color.a > 0:
+            self.surf, self.rect = genText(str(self.num), (self.x, self.y), self.color)
+            screen.blit(self.surf, self.rect)
+            self.color.a -= 5
+            self.y -= 1
+
+        
+        
 
 
 class Input:
@@ -297,10 +330,8 @@ def runGame():
         if skipTurnButton.isClicked:
             if turn == 'tortoise':
                 turn = 'enemy'
-                print('switch to enemy!')
             else:
                 turn = 'tortoise'
-                print('switch to tortoise!')
         screen = updateLiveElements(screen, turn)
         
         
@@ -319,9 +350,10 @@ def genText(text, topLeftPos, colour, isTitle=0):
     return (surf, rect)
 
 def updateLiveElements(screen, turn):
-    turnSurf, turnRect = genText(turn, (int(WINDOWWIDTH / 10) * 8, 50), WHITE)
+    turnSurf, turnRect = genText(str('Turn: ' + turn), (int(WINDOWWIDTH / 2), 50), WHITE, 1)
+    turnRect.centerx = int(WINDOWWIDTH / 2)
     screen.blit(turnSurf, turnRect)
-    return screen.copy()
+    return screen
     
 
 def checkForQuit():
