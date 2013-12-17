@@ -29,6 +29,7 @@ BLACK     = (  0,   0,   0, 255)
 RED       = (255,   0,   0, 255)
 DARKRED   = (220,   0,   0, 255)
 BLUE      = (  0,   0, 255, 255)
+YELLOW    = (255, 250,  17,   2)
 GREEN     = (  0, 255,   0, 255)
 ORANGE    = (255, 165,   0, 255)
 DARKGREEN = (  0, 155,   0, 255)
@@ -85,7 +86,7 @@ class Tortoise :
         self.healthBar.fill(BLACK)
         self.healthBarRed = pygame.Surface((98, 8))
         self.healthBarRed.fill(RED)
-        self.healthText = Button('Tortoise health:', 0, (5, WINDOWHEIGHT - 35))
+        self.healthText = Button('Tortoise\'s health:', 0, (5, WINDOWHEIGHT - 35))
 
         # DAMAGE NUMBERS
         self.damageNums = []
@@ -148,7 +149,7 @@ class Enemy:
         adjectives = ['merry', 'angry', 'maddened', 'lazy', 'hungry', 'vicious',
                       'psychotic', 'insane', 'misunderstood', 'raging']
         adjNum = random.randint(0, len(adjectives) - 1)
-        self.name = adjectives[adjNum] + creature.lower()
+        self.name = adjectives[adjNum].title() + ' ' + creature.title()
         self.creature = creature
         self.strength = strength
         self.startingHealth = startingHealth
@@ -183,7 +184,8 @@ class Enemy:
         self.healthBar.fill(BLACK)
         self.healthBarRed = pygame.Surface((98, 8))
         self.healthBarRed.fill(RED)
-        self.healthText = Button('Enemy health:', 0, (WINDOWWIDTH - 5 - self.healthBar.get_width(), WINDOWHEIGHT - 35))
+        self.healthText = Button(self.name + '\'s health:', 0, (WINDOWWIDTH - 5, WINDOWHEIGHT - 35), 0, 0, 1)
+        self.healthText.rect.right = 1000 # WINDOWWIDTH - 5
         
     def updateUI(self, screen):
         # HEALTH BAR
@@ -207,9 +209,9 @@ class Enemy:
 
         
 class Button:
-    def __init__(self, text, style, screenPos, isClickable=0, isTitle=0):
-        self.text, self.style, self.screenPos, self.isClickable = \
-        (text, style, screenPos, isClickable)
+    def __init__(self, text, style, screenPos, isClickable=0, isTitle=0, screenPosIsTopRight=0):
+        self.text, self.style, self.screenPos, self.isClickable, self.posIsTopRight = \
+        (text, style, screenPos, isClickable, screenPosIsTopRight)
         if isTitle:
             self.textSurf = BIGFONT.render(self.text, 1, LIGHTGREY)
         else:
@@ -238,7 +240,11 @@ class Button:
         self.draw(screen)
 
     def draw(self, screen):
-        screen.blit(self.currentSurf, self.screenPos)
+        if self.posIsTopRight:
+            self.rect.topright = self.screenPos
+        else:
+            self.rect.topleft = self.screenPos
+        screen.blit(self.currentSurf, self.rect)
 
     def handleClicks(self, userInput=None):
         self.isClicked = False
@@ -249,7 +255,7 @@ class Button:
                 self.currentSurf = self.hoverSurf
         else:
             self.currentSurf = self.buttonSurf
-        if userInput.mouseUnpressed == True:
+        if userInput.mouseUnpressed == True and self.rect.collidepoint(userInput.mousePos):
             self.isClicked = True
 
 
@@ -267,7 +273,11 @@ class DamageNum:
     def simulate(self, screen):
         if self.color.a > 0:
             self.surf, self.rect = genText(str(self.num), (self.x, self.y), self.color)
-            screen.blit(self.surf, self.rect)
+            surf2 = pygame.Surface((self.surf.get_width() + 10, self.surf.get_height() + 10))
+            surf2.fill(YELLOW)
+            surf2.blit(self.surf, (int(surf2.get_width() / 3), (surf2.get_height() / 3)))
+            surf2.set_alpha(self.color.a)
+            screen.blit(surf2, self.rect)
             self.color.a -= 5
             self.y -= 1
 
