@@ -1,5 +1,8 @@
 # Battle Tortoise
 # by Adam Binks
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
 
 import random, pygame, sys, time
 from pygame.locals import *
@@ -45,10 +48,13 @@ TORTOISE = {'health': 100, 'strength': 3, 'idleImg': tortoiseIdleImg, 'blockImg'
 BEAR = {'health': 100, 'strength': 5, 'idleImg': bearIdleImg, 'attacks' : ['scratch', 'claw', 'bite']}
 
 BLOCKEFFECTIVENESS = 4 # smaller number = more effective
-RANDOMDAMAGEMARGIN = 2
+RANDOMDAMAGEMARGIN = 4
+MISSCHANCE = 2
     
 
-
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
 
 
 class Tortoise :
@@ -117,7 +123,7 @@ class Tortoise :
             Tortoise.incomingDamage = 0
             dmgNum = DamageNum(damage, self.dmgNumPos, RED)
             self.damageNums.append(dmgNum)
-        else:
+        elif damage < 0:
             dmgNum = DamageNum('MISS!', self.dmgNumPos, GREEN)
 
     def block(self, turn, userInput):
@@ -139,7 +145,7 @@ class Tortoise :
             print('You lose!')
             pygame.time.wait(1000)
 
-
+#######################################################################################################
 
 class Enemy:
     screenPos = ENEMYSCREENPOS
@@ -197,16 +203,15 @@ class Enemy:
             self.healthBar.blit(self.healthBarGreen, (1, 1))
         screen.blit(self.healthBar, (WINDOWWIDTH - 5 - self.healthBar.get_width(), WINDOWHEIGHT - 15))
         self.healthText.simulate(screen, None)
-
     def genAttacks(self):
         self.numAttacks = len(self.attacks)
 
     def attack(self):
         attackNum = random.randint(0, self.numAttacks - 1)
-        damage = attackNum * self.strength + random.randint(-RANDOMDAMAGEMARGIN, RANDOMDAMAGEMARGIN)
+        damage = attackNum * self.strength + random.randint(MISSCHANCE, RANDOMDAMAGEMARGIN)
         Tortoise.incomingDamage = damage
 
-
+#######################################################################################################
         
 class Button:
     def __init__(self, text, style, screenPos, isClickable=0, isTitle=0, screenPosIsTopRight=0):
@@ -259,7 +264,7 @@ class Button:
             self.isClicked = True
 
 
-
+#######################################################################################################
 
 class DamageNum:
     def __init__(self, number, roughPos, roughColor):
@@ -282,7 +287,7 @@ class DamageNum:
             self.y -= 1
 
         
-        
+#######################################################################################################
 
 
 class Input:
@@ -313,6 +318,10 @@ class Input:
                 Input.mouseUnpressed = True
 
     
+
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
 
 
 
@@ -358,6 +367,7 @@ def genText(text, topLeftPos, colour, isTitle=0):
     rect = surf.get_rect()
     rect.topleft = topLeftPos
     return (surf, rect)
+
 
 def updateLiveElements(screen, turn):
     turnSurf, turnRect = genText(str('Turn: ' + turn), (int(WINDOWWIDTH / 2), 50), WHITE, 1)
