@@ -16,10 +16,12 @@ screen = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
 pygame.display.set_caption('Battle tortoise')
 
 BASICFONT = pygame.font.Font('freesansbold.ttf', 12)
-BIGFONT   = pygame.font.Font('fontTitle.ttf', 36)
+BIGFONT   = pygame.font.Font('fontTitle.ttf', 24)
+MEGAFONT  = pygame.font.Font('fontTitle.ttf', 36)
 
 TORTOISESCREENPOS = (int(WINDOWWIDTH / 4),     int((WINDOWHEIGHT / 3) * 2))
 ENEMYSCREENPOS =    (int((WINDOWWIDTH / 3) * 2), int(WINDOWHEIGHT / 30))
+GAP = 5
 
 backgroundImg = pygame.image.load('beachBackground.png').convert()
 tortoiseIdleImg = pygame.image.load('tortoiseIdle1.png').convert_alpha()
@@ -63,27 +65,29 @@ class Tortoise :
     incomingDamage = 0
 
     def __init__(self):
+        self.firstTime = True
         self.img = TORTOISE['idleImg']
         self.rect = Rect((TORTOISESCREENPOS), (self.img.get_size()))
         self.health = TORTOISE['health']
-        self.attacks = self.generateAttacksList
+        self.attacks = ['bite', 'headbutt']
         self.isBlocking = False
         self.initUI()
 
-    def generateAttacksList(self):
-        return['bite', 'headbutt']
+    #def generateAttacksList(self):
+    #    return['bite', 'headbutt']
 
     def simulate(self, turn, screen, userInput):
+        #SIMULATE
         self.block(turn, userInput)
         self.takeDamage()
         self.handleImg()
-        self.draw(screen)
         self.checkForLoss()
-        self.lastHealth = self.health
-
-    def draw(self, screen):
+        if not self.firstTime:
+            self.lastHealth = self.health
+        else: self.firstTime = False
+        #DRAW
         screen.blit(self.img, self.rect)
-        self.updateUI(screen)
+        self.updateUI(screen, userInput, turn)
 
     def initUI(self):
         # HEALTH BAR
@@ -97,8 +101,20 @@ class Tortoise :
         # DAMAGE NUMBERS
         self.damageNums = []
         self.dmgNumPos = (self.rect.centerx, self.rect.top - 10)
+
+        # ATTACK LIST
+        self.attackButtons = []
+        self.attackTitle = Button('Attacks:', 0, (GAP, GAP), 0, 'IsTitle', 0)
+        self.attackButtons.append(self.attackTitle)
+        dummy = Button('test', 0, (0, 0), 0, 0, 0)
+        for i in range(len(self.attacks)):
+            pos = (GAP, GAP * (i + 2) + self.attackTitle.rect.height + (i * dummy.rect.height))
+            self.attackButtons.append(Button(self.attacks[i-1].title(), 0, (pos), 'isClickable', 0, 0))
+        self.clickedButtons = []
+
+
         
-    def updateUI(self, screen):
+    def updateUI(self, screen, userInput, turn):
         # HEALTH BAR
         if self.health != self.lastHealth:
             if self.health < 0: self.health = 0
@@ -109,10 +125,20 @@ class Tortoise :
             self.healthBar.blit(self.healthBarGreen, (1, 1))
         screen.blit(self.healthBar, (5, WINDOWHEIGHT - 15))
         self.healthText.simulate(screen, None)
+        self.lastHealth = self.health
 
         # DAMAGE NUMBERS
         for num in self.damageNums:
             num.simulate(screen)
+
+        # ATTACK LIST
+        i = -1
+        for button in self.attackButtons:
+            button.simulate(screen, userInput)
+            if button.isClickable and button.isClicked and i not in self.clickedButtons and turn == 'tortoise':
+                self.clickedButtons.append(i)
+                print(str(self.clickedButtons))
+            i += 1
 
     def takeDamage(self):
         damage = Tortoise.incomingDamage
@@ -143,9 +169,10 @@ class Tortoise :
     def checkForLoss(self):
         if self.health <= 0:
             print('You lose!')
-            pygame.time.wait(1000)
+
 
 #######################################################################################################
+
 
 class Enemy:
     screenPos = ENEMYSCREENPOS
@@ -211,8 +238,10 @@ class Enemy:
         damage = attackNum * self.strength + random.randint(MISSCHANCE, RANDOMDAMAGEMARGIN)
         Tortoise.incomingDamage = damage
 
+
 #######################################################################################################
         
+
 class Button:
     def __init__(self, text, style, screenPos, isClickable=0, isTitle=0, screenPosIsTopRight=0):
         self.text, self.style, self.screenPos, self.isClickable, self.posIsTopRight = \
@@ -265,6 +294,7 @@ class Button:
 
 
 #######################################################################################################
+
 
 class DamageNum:
     def __init__(self, number, roughPos, roughColor):
@@ -335,7 +365,7 @@ def runGame():
     userInput = Input()
     tortoise = Tortoise()
     enemy = Enemy('BEAR', random.randint(3, 5), 50)
-    skipTurnButton = Button('Skip turn', 0, (50, 50), 1, 0)
+    skipTurnButton = Button('Skip turn', 0, (WINDOWWIDTH - GAP, GAP), 1, 0, 1)
     buttons = [skipTurnButton]
     turn = 'enemy'
     while True: # main game loop
