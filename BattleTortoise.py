@@ -23,6 +23,7 @@ TORTOISESCREENPOS = (int(WINDOWWIDTH / 4),     int((WINDOWHEIGHT / 3) * 2))
 ENEMYSCREENPOS =    (int((WINDOWWIDTH / 3) * 2), int(WINDOWHEIGHT / 8))
 GAP = 5
 FLASHREDTIME = 0.2
+ATTACKANIMTIME = 2000 # in milliseconds
 
 backgroundImg = pygame.image.load('beachBackground.png').convert()
 tortoiseIdleImg = pygame.image.load('tortoiseIdle1.png').convert_alpha()
@@ -80,19 +81,15 @@ class Tortoise :
         self.initUI()
         self.timeOfLastHit = time.time() - 100
 
-    #def generateAttacksList(self):
-    #    return['bite', 'headbutt']
-
     def simulate(self, turn, screen, userInput):
         #SIMULATE
         self.block(turn, userInput)
         self.takeDamage()
-        self.checkForLoss()
         self.handleImg()
         #DRAW
         screen.blit(self.img, self.rect)
         self.updateUI(screen, userInput, turn)
-        self.attack()
+        self.attack(screen)
         self.lastHealth = self.health
 
     def initUI(self):
@@ -145,9 +142,29 @@ class Tortoise :
                 self.clickedButtons.append(i)
             i += 1
 
-    def attack(self):
+    def attack(self, screen):
         global turn
         if self.clickedButtons:
+            # ANIMATE
+            screenFreeze = screen.copy()
+            frames = int(ATTACKANIMTIME / FPS)
+            startx, starty = self.rect.topleft
+            enemyx, enemyy = ENEMYSCREENPOS
+            endx, endy = (enemyx - 50, enemyy - 5)
+            endPos = endx, endy
+            xstep = int((endx - startx) / frames)
+            ystep = int((endy - starty) / frames)
+            while self.rect.topleft != endPos:
+                self.rect.move_ip(xstep, ystep)
+                screen.blit(screenFreeze, self.rect)
+                screen.blit(self.img, self.rect)
+                pygame.display.update()
+                checkForQuit()
+
+                if self.rect.left == endx or self.rect.top  == endy:
+                    print('Topleft: ' + str(self.rect.topleft) + ', endPos: ' + str(endPos))
+
+
             # ATTACK TEXT
             attackText = DamageNum('Tortoise uses ' + self.attacks[(self.clickedButtons[0])] + '!', self.dmgNumPos, GREEN)
             self.damageNums.append(attackText)
@@ -155,7 +172,7 @@ class Tortoise :
             damage = self.clickedButtons[0] * self.strength + random.randint(MISSCHANCE, RANDOMDAMAGEMARGIN)
             Enemy.incomingDamage = damage
             self.clickedButtons = []
-            turn = 'enemy'
+            #turn = 'enemy'
 
     def takeDamage(self):
         damage = Tortoise.incomingDamage
@@ -192,10 +209,6 @@ class Tortoise :
             self.img = TORTOISE['blockImg']
         else:
             self.img = TORTOISE['idleImg']
-
-    def checkForLoss(self):
-        if self.health <= 0:
-            print('You lose!')
 
 
 #######################################################################################################
@@ -298,10 +311,6 @@ class Enemy:
             self.damageNums.append(dmgNum)
         if self.health < 0:
             self.health = 0
-
-    def checkForLoss(self):
-        if self.health == 0:
-            print('You win!')
 
 
 #######################################################################################################
