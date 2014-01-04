@@ -22,11 +22,15 @@ MEGAFONT  = pygame.font.Font('fontTitle.ttf', 36)
 TORTOISESCREENPOS = (int(WINDOWWIDTH / 4),     int((WINDOWHEIGHT / 3) * 2))
 ENEMYSCREENPOS =    (int((WINDOWWIDTH / 3) * 2), int(WINDOWHEIGHT / 8))
 GAP = 5
+FLASHREDTIME = 0.2
 
 backgroundImg = pygame.image.load('beachBackground.png').convert()
 tortoiseIdleImg = pygame.image.load('tortoiseIdle1.png').convert_alpha()
+tortoiseIdleHitImg = pygame.image.load('tortoiseIdle1Hit.png').convert_alpha()
 tortoiseBlockImg = pygame.image.load('tortoiseBlock1.png').convert_alpha()
+tortoiseBlockHitImg = pygame.image.load('tortoiseBlock1Hit.png').convert_alpha()
 bearIdleImg = pygame.image.load('bearIdle1.png').convert_alpha()
+bearIdleHitImg = pygame.image.load('bearIdle1Hit.png').convert_alpha()
 
 # Colours     R    G    B  ALPHA
 WHITE     = (255, 255, 255, 255)
@@ -46,8 +50,10 @@ BROWN     = (139,  69,  19, 255)
 BLOCKKEY = K_SPACE
 
 # ALL MOBS STATS
-TORTOISE = {'health': 100, 'strength': 3, 'idleImg': tortoiseIdleImg, 'blockImg': tortoiseBlockImg}
-BEAR = {'health': 100, 'strength': 5, 'idleImg': bearIdleImg, 'attacks' : ['scratch', 'claw', 'bite']}
+TORTOISE = {'health': 100, 'strength': 3, 'idleImg': tortoiseIdleImg, 'blockImg': tortoiseBlockImg, 
+            'idleHitImg': tortoiseIdleHitImg, 'blockHitImg': tortoiseBlockHitImg}
+BEAR = {'health': 100, 'strength': 5, 'idleImg': bearIdleImg, 'idleHitImg': bearIdleHitImg, 
+        'attacks' : ['scratch', 'claw', 'bite']}
 
 BLOCKEFFECTIVENESS = 4 # smaller number = more effective
 RANDOMDAMAGEMARGIN = 4
@@ -72,6 +78,7 @@ class Tortoise :
         self.strength = 3
         self.isBlocking = False
         self.initUI()
+        self.timeOfLastHit = time.time() - 100
 
     #def generateAttacksList(self):
     #    return['bite', 'headbutt']
@@ -80,8 +87,8 @@ class Tortoise :
         #SIMULATE
         self.block(turn, userInput)
         self.takeDamage()
-        self.handleImg()
         self.checkForLoss()
+        self.handleImg()
         #DRAW
         screen.blit(self.img, self.rect)
         self.updateUI(screen, userInput, turn)
@@ -157,6 +164,7 @@ class Tortoise :
             Tortoise.incomingDamage = 0
             dmgNum = DamageNum(damage, self.dmgNumPos, RED)
             self.damageNums.append(dmgNum)
+            self.timeOfLastHit = time.time()
         elif damage < 0:
             dmgNum = DamageNum('MISS!', self.dmgNumPos, GREEN)
             self.damageNums.append(dmgNum)
@@ -168,9 +176,17 @@ class Tortoise :
                     self.isBlocking = True
                     return
         self.isBlocking = False
+        self.img = TORTOISE['idleImg']
 
     def handleImg(self):
-        if self.isBlocking == True:
+        if time.time() - FLASHREDTIME < self.timeOfLastHit:
+            if self.isBlocking:
+                self.img = TORTOISE['blockHitImg']
+                return
+            else:
+                self.img = TORTOISE['idleHitImg']
+                return
+        elif self.isBlocking:
             self.img = TORTOISE['blockImg']
         else:
             self.img = TORTOISE['idleImg']
@@ -199,15 +215,18 @@ class Enemy:
         if creature == 'BEAR':
             self.img = BEAR['idleImg']
             self.attacks = BEAR['attacks']
-        self.rect = Rect((TORTOISESCREENPOS), (self.img.get_size()))
+        self.rect = Rect((Enemy.screenPos), (self.img.get_size()))
         self.genAttacks()
         self.initUI()
+        self.timeOfLastHit = time.time() - 100
 
     def simulate(self, turn, screen):
         self.handleImg()
         self.draw(screen)
         if turn == 'enemy':
             self.attack()
+        else:
+            self.takeDamage()
         self.updateUI(screen)
         if turn == 'enemy':
             return 'tortoise'
@@ -216,10 +235,13 @@ class Enemy:
 
     def handleImg(self):
         if self.creature == 'BEAR':
+            if time.time() - FLASHREDTIME < self.timeOfLastHit:
+                self.img = BEAR['idleHitImg']
+                return
             self.img = BEAR['idleImg']
 
     def draw(self, screen):
-        screen.blit(self.img, Enemy.screenPos)
+        screen.blit(self.img, self.rect)
 
     def initUI(self):
         # HEALTH BAR
@@ -233,7 +255,8 @@ class Enemy:
 
         # DAMAGE NUMBERS
         self.damageNums = []
-        self.dmgNumPos = (self.rect.centerx, self.rect.top - 10)
+        self.dmgNumPos = (self.rect.centerx, self.rect.bottom + 40)
+        self.dmgTextPos = (self.rect.left, self.rect.bottom + 40)
         
     def updateUI(self, screen):
         # HEALTH BAR
@@ -257,7 +280,7 @@ class Enemy:
         attackNum = random.randint(0, self.numAttacks - 1)
         damage = attackNum * self.strength + random.randint(MISSCHANCE, RANDOMDAMAGEMARGIN)
         Tortoise.incomingDamage = damage
-        attackText = DamageNum(self.name + ' uses ' + self.attacks[attackNum] + '!', self.dmgNumPos, GREEN)
+        attackText = DamageNum(self.name + ' uses ' + self.attacks[attackNum] + '!', self.dmgTextPos, GREEN)
         self.damageNums.append(attackText)
 
     def takeDamage(self):
@@ -267,9 +290,14 @@ class Enemy:
             Enemy.incomingDamage = 0
             dmgNum = DamageNum(damage, self.dmgNumPos, RED)
             self.damageNums.append(dmgNum)
+            self.timeOfLastHit = time.time()
         elif damage < 0:
             dmgNum = DamageNum('MISS!', self.dmgNumPos, GREEN)
             self.damageNums.append(dmgNum)
+
+    def checkForLoss(self):
+        if self.health <= 0:
+            print('You win!')
 
 
 #######################################################################################################
