@@ -16,8 +16,8 @@ screen = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
 pygame.display.set_caption('Battle tortoise')
 
 BASICFONT = pygame.font.Font('freesansbold.ttf', 12)
-BIGFONT   = pygame.font.Font('fontTitle.ttf', 24)
-MEGAFONT  = pygame.font.Font('fontTitle.ttf', 36)
+BIGFONT   = pygame.font.Font('fontTitle.ttf', 25)
+MEGAFONT  = pygame.font.Font('fontTitle.ttf', 42)
 
 TORTOISESCREENPOS = (int(WINDOWWIDTH / 4),     int((WINDOWHEIGHT / 3) * 2))
 ENEMYSCREENPOS =    (int((WINDOWWIDTH / 3) * 2), int(WINDOWHEIGHT / 8))
@@ -146,6 +146,7 @@ class Tortoise :
             i += 1
 
     def attack(self):
+        global turn
         if self.clickedButtons:
             # ATTACK TEXT
             attackText = DamageNum('Tortoise uses ' + self.attacks[(self.clickedButtons[0])] + '!', self.dmgNumPos, GREEN)
@@ -154,6 +155,7 @@ class Tortoise :
             damage = self.clickedButtons[0] * self.strength + random.randint(MISSCHANCE, RANDOMDAMAGEMARGIN)
             Enemy.incomingDamage = damage
             self.clickedButtons = []
+            turn = 'enemy'
 
     def takeDamage(self):
         damage = Tortoise.incomingDamage
@@ -294,9 +296,11 @@ class Enemy:
         elif damage < 0:
             dmgNum = DamageNum('MISS!', self.dmgNumPos, GREEN)
             self.damageNums.append(dmgNum)
+        if self.health < 0:
+            self.health = 0
 
     def checkForLoss(self):
-        if self.health <= 0:
+        if self.health == 0:
             print('You win!')
 
 
@@ -417,11 +421,13 @@ class Input:
 
 
 def main():
-    runGame()
+    while True:
+        winner, tortoiseHealth, enemyHealth = runGame()
+        gameOverScreen(screen, winner, tortoiseHealth, enemyHealth)
 
 
 def runGame():
-    global screen
+    global screen, turn
     
     userInput = Input()
     tortoise = Tortoise()
@@ -440,8 +446,6 @@ def runGame():
         if skipTurnButton.isClicked:
             if turn == 'tortoise':
                 turn = 'enemy'
-            else:
-                turn = 'tortoise'
         screen = updateLiveElements(screen, turn)
         
         
@@ -449,14 +453,73 @@ def runGame():
         checkForQuit()
         FPSCLOCK.tick(FPS)
 
+        if tortoise.health < 1:
+            winner = 'enemy'
+            pygame.time.wait(200)
+            break
+        elif enemy.health < 1:
+            winner = 'tortoise'
+            pygame.time.wait(200)
+            break
+
+    return(winner, tortoise.health, enemy.health)
+
+
+def gameOverScreen(screen, winner, tortoiseHealth, enemyHealth):
+    newScreen = pygame.Surface((WINDOWWIDTH, WINDOWHEIGHT))
+    userInput = Input()
+    if winner == 'tortoise':
+        loser = 'enemy'
+        verb = 'won'
+        mainColour = GREEN
+        accentColour = DARKGREEN
+    elif winner == 'enemy':
+        loser = 'tortoise'
+        verb = 'lost'
+        mainColour = RED
+        accentColour = DARKRED
+
+    newScreen.fill(mainColour)
+    titleSurf, titleRect = genText('You ' + verb + '!', None, WHITE, False, True, (int(WINDOWWIDTH / 2), int(WINDOWHEIGHT / 3)))
+    newScreen.blit(titleSurf, titleRect)
+    newScreen.set_alpha(5)
+
+    for i in range(60): # ANIMATE TRANSITION:
+        screen.blit(newScreen, (0, 0))
+        pygame.display.update()
+        checkForQuit()
+        FPSCLOCK.tick()
+
+    base = screen.copy()
+    playAgain = Button('Play again', None, (int(WINDOWWIDTH / 2) - 10, int(WINDOWHEIGHT / 3) * 2), 1, 0, 1)
+    quit = Button('Quit', None, (int(WINDOWWIDTH / 2) + 10, int(WINDOWHEIGHT / 3) * 2), 1, 0, 0)
+
+    while True:
+        userInput.get()
+        playAgain.simulate(screen, userInput)
+        if playAgain.isClicked:
+            return
+        quit.simulate(screen, userInput)
+        if quit.isClicked:
+            terminate()
+        checkForQuit()
+        pygame.display.update()
+        FPSCLOCK.tick()
+    pygame.time.wait(2000)
+
         
-def genText(text, topLeftPos, colour, isTitle=0):
+def genText(text, topLeftPos, colour, isTitle=0, isMega=0, centerPos=0):
     if isTitle:
         font = BIGFONT
+    elif isMega:
+        font = MEGAFONT
     else: font = BASICFONT
     surf = font.render(text, 1, colour)
     rect = surf.get_rect()
-    rect.topleft = topLeftPos
+    if centerPos:
+        rect.center = centerPos
+    else:
+        rect.topleft = topLeftPos
     return (surf, rect)
 
 
