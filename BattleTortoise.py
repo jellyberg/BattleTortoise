@@ -23,7 +23,7 @@ TORTOISESCREENPOS = (int(WINDOWWIDTH / 4),     int((WINDOWHEIGHT / 3) * 2))
 ENEMYSCREENPOS =    (int((WINDOWWIDTH / 3) * 2), int(WINDOWHEIGHT / 8))
 GAP = 5
 FLASHREDTIME = 0.2
-ATTACKANIMTIME = 2000 # in milliseconds
+ATTACKANIMTIME = 4000 # in milliseconds
 ENEMYWAITFRAMES = 10 # pause after turn begins before enemy attacks
 
 backgroundImg = pygame.image.load('beachBackground.png').convert()
