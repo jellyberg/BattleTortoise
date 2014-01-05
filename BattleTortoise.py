@@ -24,6 +24,7 @@ ENEMYSCREENPOS =    (int((WINDOWWIDTH / 3) * 2), int(WINDOWHEIGHT / 8))
 GAP = 5
 FLASHREDTIME = 0.2
 ATTACKANIMTIME = 2000 # in milliseconds
+ENEMYWAITFRAMES = 10 # pause after turn begins before enemy attacks
 
 backgroundImg = pygame.image.load('beachBackground.png').convert()
 tortoiseIdleImg = pygame.image.load('tortoiseIdle1.png').convert_alpha()
@@ -151,18 +152,29 @@ class Tortoise :
             startx, starty = self.rect.topleft
             enemyx, enemyy = ENEMYSCREENPOS
             endx, endy = (enemyx - 50, enemyy - 5)
+            endy +=  random.randint(-50, 200)
+            startPos = startx, starty
             endPos = endx, endy
-            xstep = int((endx - startx) / frames)
-            ystep = int((endy - starty) / frames)
-            while self.rect.topleft != endPos:
-                self.rect.move_ip(xstep, ystep)
-                screen.blit(screenFreeze, self.rect)
+            xstep = ((endx - startx) / frames)
+            ystep = ((endy - starty) / frames)
+            truex, truey = self.rect.topleft
+            # go to enemy
+            while (int(truex), int(truey)) != endPos and (int(truex + 0.5), int(truey + 0.5)) != endPos and (int(truex - 0.5), int(truey - 0.5)) != endPos:
+                truex, truey= truex + xstep, truey + ystep
+                self.rect.topleft = (int(truex), int(truey))
+                screen.blit(screenFreeze, (0, 0))
+                screen.blit(self.img, self.rect)
+                pygame.display.update()
+                checkForQuit()
+            # return to startPos
+            while (int(truex), int(truey)) != startPos and (int(truex + 0.5), int(truey + 0.5)) != startPos and (int(truex - 0.5), int(truey - 0.5)) != startPos:
+                truex, truey= truex - xstep, truey - ystep
+                self.rect.topleft = (int(truex), int(truey))
+                screen.blit(screenFreeze, (0, 0))
                 screen.blit(self.img, self.rect)
                 pygame.display.update()
                 checkForQuit()
 
-                if self.rect.left == endx or self.rect.top  == endy:
-                    print('Topleft: ' + str(self.rect.topleft) + ', endPos: ' + str(endPos))
 
 
             # ATTACK TEXT
@@ -172,7 +184,7 @@ class Tortoise :
             damage = self.clickedButtons[0] * self.strength + random.randint(MISSCHANCE, RANDOMDAMAGEMARGIN)
             Enemy.incomingDamage = damage
             self.clickedButtons = []
-            #turn = 'enemy'
+            turn = 'enemy'
 
     def takeDamage(self):
         damage = Tortoise.incomingDamage
@@ -234,18 +246,21 @@ class Enemy:
         self.genAttacks()
         self.initUI()
         self.timeOfLastHit = time.time() - 100
+        self.pauseBeforeAttack = ENEMYWAITFRAMES
 
     def simulate(self, turn, screen):
         self.handleImg()
         self.draw(screen)
-        if turn == 'enemy':
-            self.attack()
-        else:
-            self.takeDamage()
+        self.takeDamage()
         self.updateUI(screen)
         if turn == 'enemy':
-            return 'tortoise'
+            if self.pauseBeforeAttack == 0:
+                self.attack(screen)
+                return 'tortoise'
+            self.pauseBeforeAttack -= 1
+            return 'enemy'
         else:
+            self.pauseBeforeAttack = ENEMYWAITFRAMES
             return 'tortoise'
 
     def handleImg(self):
@@ -291,7 +306,34 @@ class Enemy:
     def genAttacks(self):
         self.numAttacks = len(self.attacks)
 
-    def attack(self):
+    def attack(self, screen):
+        screenFreeze = screen.copy()
+        frames = int(ATTACKANIMTIME / FPS)
+        startx, starty = self.rect.topleft
+        enemyx, enemyy = TORTOISESCREENPOS
+        endx, endy = (enemyx + 40, enemyy - 200 + random.randint(-50, 50))
+        startPos = startx, starty
+        endPos = endx, endy
+        xstep = ((endx - startx) / frames)
+        ystep = ((endy - starty) / frames)
+        truex, truey = self.rect.topleft
+        # go to enemy
+        while (int(truex), int(truey)) != endPos and (int(truex + 0.5), int(truey + 0.5)) != endPos and (int(truex - 0.5), int(truey - 0.5)) != endPos:
+            truex, truey= truex + xstep, truey + ystep
+            self.rect.topleft = (int(truex), int(truey))
+            screen.blit(screenFreeze, (0, 0))
+            screen.blit(self.img, self.rect)
+            pygame.display.update()
+            checkForQuit()
+        # return to startPos
+        while (int(truex), int(truey)) != startPos and (int(truex + 0.5), int(truey + 0.5)) != startPos and (int(truex - 0.5), int(truey - 0.5)) != startPos:
+            truex, truey= truex - xstep, truey - ystep
+            self.rect.topleft = (int(truex), int(truey))
+            screen.blit(screenFreeze, (0, 0))
+            screen.blit(self.img, self.rect)
+            pygame.display.update()
+            checkForQuit()
+        #  DEAL DAMAGE
         attackNum = random.randint(0, self.numAttacks - 1)
         damage = attackNum * self.strength + random.randint(MISSCHANCE, RANDOMDAMAGEMARGIN)
         Tortoise.incomingDamage = damage
@@ -447,8 +489,12 @@ def runGame():
     while True: # main game loop
         userInput.get()
         screen.blit(backgroundImg, (0,0))
-        tortoise.simulate(turn, screen, userInput)
-        turn = enemy.simulate(turn, screen)
+        if turn == 'enemy':    # allows correct draw order for animations
+            tortoise.simulate(turn, screen, userInput)
+            turn = enemy.simulate(turn, screen)
+        else:
+            turn = enemy.simulate(turn, screen)
+            tortoise.simulate(turn, screen, userInput)
 
         for button in buttons:
             button.simulate(screen, userInput)
