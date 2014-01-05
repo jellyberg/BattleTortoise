@@ -8,7 +8,152 @@ import random, pygame, sys, time
 from pygame.locals import *
 pygame.init()
 
-FPS = 30
+
+def main():
+    while True:
+        winner, tortoiseHealth, enemyHealth = runGame()
+        gameOverScreen(screen, winner, tortoiseHealth, enemyHealth)
+
+
+def runGame():
+    global screen, turn
+    
+    userInput = Input()
+    tortoise = Tortoise()
+    enemy = Enemy('BEAR', random.randint(3, 5), 50)
+    skipTurnButton = Button('Skip turn', 0, (WINDOWWIDTH - GAP, GAP), 1, 0, 1)
+    buttons = [skipTurnButton]
+    turn = 'tortoise'
+    while True: # main game loop
+        userInput.get()
+        screen.blit(backgroundImg, (0,0))
+        if turn == 'enemy':    # allows correct draw order for animations
+            tortoise.simulate(turn, screen, userInput)
+            turn = enemy.simulate(turn, screen)
+        else:
+            turn = enemy.simulate(turn, screen)
+            tortoise.simulate(turn, screen, userInput)
+
+        for button in buttons:
+            button.simulate(screen, userInput)
+        if skipTurnButton.isClicked:
+            if turn == 'tortoise':
+                turn = 'enemy'
+        screen = updateLiveElements(screen, turn)
+        
+        
+        pygame.display.update()
+        checkForQuit()
+        FPSCLOCK.tick(FPS)
+
+        if tortoise.health < 1:
+            winner = 'enemy'
+            pygame.time.wait(200)
+            break
+        elif enemy.health < 1:
+            winner = 'tortoise'
+            pygame.time.wait(200)
+            break
+
+    return(winner, tortoise.health, enemy.health)
+
+
+def gameOverScreen(screen, winner, tortoiseHealth, enemyHealth):
+    newScreen = pygame.Surface((WINDOWWIDTH, WINDOWHEIGHT))
+    userInput = Input()
+    if winner == 'tortoise':
+        loser = 'enemy'
+        verb = 'won'
+        mainColour = GREEN
+        accentColour = DARKGREEN
+    elif winner == 'enemy':
+        loser = 'tortoise'
+        verb = 'lost'
+        mainColour = RED
+        accentColour = DARKRED
+
+    newScreen.fill(mainColour)
+    titleSurf, titleRect = genText('You ' + verb + '!', None, WHITE, False, True, (int(WINDOWWIDTH / 2), int(WINDOWHEIGHT / 3)))
+    newScreen.blit(titleSurf, titleRect)
+    newScreen.set_alpha(5)
+
+    for i in range(60): # ANIMATE TRANSITION:
+        screen.blit(newScreen, (0, 0))
+        pygame.display.update()
+        checkForQuit()
+        FPSCLOCK.tick()
+
+    base = screen.copy()
+    playAgain = Button('Play again', None, (int(WINDOWWIDTH / 2) - 10, int(WINDOWHEIGHT / 3) * 2), 1, 0, 1)
+    quit = Button('Quit', None, (int(WINDOWWIDTH / 2) + 10, int(WINDOWHEIGHT / 3) * 2), 1, 0, 0)
+
+    while True:
+        userInput.get()
+        playAgain.simulate(screen, userInput)
+        if playAgain.isClicked:
+            return
+        quit.simulate(screen, userInput)
+        if quit.isClicked:
+            terminate()
+        checkForQuit()
+        pygame.display.update()
+        FPSCLOCK.tick()
+    pygame.time.wait(2000)
+
+        
+def genText(text, topLeftPos, colour, isTitle=0, isMega=0, centerPos=0):
+    if isTitle:
+        font = BIGFONT
+    elif isMega:
+        font = MEGAFONT
+    else: font = BASICFONT
+    surf = font.render(text, 1, colour)
+    rect = surf.get_rect()
+    if centerPos:
+        rect.center = centerPos
+    else:
+        rect.topleft = topLeftPos
+    return (surf, rect)
+
+
+def updateLiveElements(screen, turn):
+    turnSurf, turnRect = genText(str('Turn: ' + turn), (int(WINDOWWIDTH / 2), 50), WHITE, 1)
+    turnRect.centerx = int(WINDOWWIDTH / 2)
+    screen.blit(turnSurf, turnRect)
+    return screen
+
+
+    
+
+def checkForQuit():
+    for event in pygame.event.get(QUIT): # get all the QUIT events
+        terminate() # terminate if any QUIT events are present
+    for event in pygame.event.get(KEYUP): # get all the KEYUP events
+        if event.key == K_ESCAPE:
+            terminate() # terminate if the KEYUP event was for the Esc key
+        pygame.event.post(event) # put the other KEYUP event objects back
+
+
+def terminate():
+    pygame.quit()
+    sys.exit()
+
+def loadAnimationFiles(folder, file, frames):
+    animation = []
+    for num in range(0, frames):
+        num = str(num)
+        num = num.zfill(4)
+        img = pygame.image.load('assets/' + folder + '/' + file + '.' + num + '.png')
+        animation.append(img)
+    return animation
+
+
+#######################################################################################################
+#######################################################################################################
+
+
+
+FPS = 60
 FPSCLOCK = pygame.time.Clock()
 WINDOWWIDTH = 640
 WINDOWHEIGHT = 480
@@ -23,7 +168,7 @@ TORTOISESCREENPOS = (int(WINDOWWIDTH / 4),     int((WINDOWHEIGHT / 3) * 2))
 ENEMYSCREENPOS =    (int((WINDOWWIDTH / 3) * 2), int(WINDOWHEIGHT / 8))
 GAP = 5
 FLASHREDTIME = 0.2
-ATTACKANIMTIME = 4000 # in milliseconds
+ATTACKANIMTIME = 20000 # in milliseconds
 ENEMYWAITFRAMES = 10 # pause after turn begins before enemy attacks
 
 backgroundImg = pygame.image.load('beachBackground.png').convert()
@@ -33,6 +178,12 @@ tortoiseBlockImg = pygame.image.load('tortoiseBlock1.png').convert_alpha()
 tortoiseBlockHitImg = pygame.image.load('tortoiseBlock1Hit.png').convert_alpha()
 bearIdleImg = pygame.image.load('bearIdle1.png').convert_alpha()
 bearIdleHitImg = pygame.image.load('bearIdle1Hit.png').convert_alpha()
+
+
+bearIdle = loadAnimationFiles('bearIdle', 'bear_idle', 120)
+bearAttack = loadAnimationFiles('bearAttack', 'bear_attack', 180)
+
+
 
 # Colours     R    G    B  ALPHA
 WHITE     = (255, 255, 255, 255)
@@ -54,7 +205,7 @@ BLOCKKEY = K_SPACE
 # ALL MOBS STATS
 TORTOISE = {'health': 100, 'strength': 3, 'idleImg': tortoiseIdleImg, 'blockImg': tortoiseBlockImg, 
             'idleHitImg': tortoiseIdleHitImg, 'blockHitImg': tortoiseBlockHitImg}
-BEAR = {'health': 100, 'strength': 5, 'idleImg': bearIdleImg, 'idleHitImg': bearIdleHitImg, 
+BEAR = {'health': 100, 'strength': 5, 'idleAnim': bearIdle, 'attackAnim': bearAttack, 'idleHitImg': bearIdleHitImg, 
         'attacks' : ['scratch', 'claw', 'bite']}
 
 BLOCKEFFECTIVENESS = 4 # smaller number = more effective
@@ -88,9 +239,9 @@ class Tortoise :
         self.takeDamage()
         self.handleImg()
         #DRAW
-        screen.blit(self.img, self.rect)
         self.updateUI(screen, userInput, turn)
         self.attack(screen)
+        screen.blit(self.img, self.rect)
         self.lastHealth = self.health
 
     def initUI(self):
@@ -175,8 +326,6 @@ class Tortoise :
                 pygame.display.update()
                 checkForQuit()
 
-
-
             # ATTACK TEXT
             attackText = DamageNum('Tortoise uses ' + self.attacks[(self.clickedButtons[0])] + '!', self.dmgNumPos, GREEN)
             self.damageNums.append(attackText)
@@ -240,27 +389,29 @@ class Enemy:
         self.startingHealth = startingHealth
         self.health = startingHealth
         if creature == 'BEAR':
-            self.img = BEAR['idleImg']
+            self.img = BEAR['idleAnim'][0]
             self.attacks = BEAR['attacks']
         self.rect = Rect((Enemy.screenPos), (self.img.get_size()))
         self.genAttacks()
         self.initUI()
         self.timeOfLastHit = time.time() - 100
         self.pauseBeforeAttack = ENEMYWAITFRAMES
+        self.idleAnimNum = 0
 
     def simulate(self, turn, screen):
         self.handleImg()
-        self.draw(screen)
         self.takeDamage()
         self.updateUI(screen)
         if turn == 'enemy':
             if self.pauseBeforeAttack == 0:
                 self.attack(screen)
                 return 'tortoise'
+            self.draw(screen)
             self.pauseBeforeAttack -= 1
             return 'enemy'
         else:
             self.pauseBeforeAttack = ENEMYWAITFRAMES
+            self.draw(screen)
             return 'tortoise'
 
     def handleImg(self):
@@ -268,7 +419,9 @@ class Enemy:
             if time.time() - FLASHREDTIME < self.timeOfLastHit:
                 self.img = BEAR['idleHitImg']
                 return
-            self.img = BEAR['idleImg']
+            self.img = BEAR['idleAnim'][self.idleAnimNum]
+            self.idleAnimNum += 1
+            if self.idleAnimNum == 120: self.idleAnimNum = 0
 
     def draw(self, screen):
         screen.blit(self.img, self.rect)
@@ -309,6 +462,7 @@ class Enemy:
     def attack(self, screen):
         screenFreeze = screen.copy()
         frames = int(ATTACKANIMTIME / FPS)
+        print(str(frames))
         startx, starty = self.rect.topleft
         enemyx, enemyy = TORTOISESCREENPOS
         endx, endy = (enemyx + 40, enemyy - 200 + random.randint(-50, 50))
@@ -319,7 +473,7 @@ class Enemy:
         truex, truey = self.rect.topleft
         # go to enemy
         while (int(truex), int(truey)) != endPos and (int(truex + 0.5), int(truey + 0.5)) != endPos and (int(truex - 0.5), int(truey - 0.5)) != endPos:
-            truex, truey= truex + xstep, truey + ystep
+            truex, truey = truex + xstep, truey + ystep
             self.rect.topleft = (int(truex), int(truey))
             screen.blit(screenFreeze, (0, 0))
             screen.blit(self.img, self.rect)
@@ -327,7 +481,7 @@ class Enemy:
             checkForQuit()
         # return to startPos
         while (int(truex), int(truey)) != startPos and (int(truex + 0.5), int(truey + 0.5)) != startPos and (int(truex - 0.5), int(truey - 0.5)) != startPos:
-            truex, truey= truex - xstep, truey - ystep
+            truex, truey = truex - xstep, truey - ystep
             self.rect.topleft = (int(truex), int(truey))
             screen.blit(screenFreeze, (0, 0))
             screen.blit(self.img, self.rect)
@@ -471,132 +625,7 @@ class Input:
 
 
 
-def main():
-    while True:
-        winner, tortoiseHealth, enemyHealth = runGame()
-        gameOverScreen(screen, winner, tortoiseHealth, enemyHealth)
 
-
-def runGame():
-    global screen, turn
-    
-    userInput = Input()
-    tortoise = Tortoise()
-    enemy = Enemy('BEAR', random.randint(3, 5), 50)
-    skipTurnButton = Button('Skip turn', 0, (WINDOWWIDTH - GAP, GAP), 1, 0, 1)
-    buttons = [skipTurnButton]
-    turn = 'tortoise'
-    while True: # main game loop
-        userInput.get()
-        screen.blit(backgroundImg, (0,0))
-        if turn == 'enemy':    # allows correct draw order for animations
-            tortoise.simulate(turn, screen, userInput)
-            turn = enemy.simulate(turn, screen)
-        else:
-            turn = enemy.simulate(turn, screen)
-            tortoise.simulate(turn, screen, userInput)
-
-        for button in buttons:
-            button.simulate(screen, userInput)
-        if skipTurnButton.isClicked:
-            if turn == 'tortoise':
-                turn = 'enemy'
-        screen = updateLiveElements(screen, turn)
-        
-        
-        pygame.display.update()
-        checkForQuit()
-        FPSCLOCK.tick(FPS)
-
-        if tortoise.health < 1:
-            winner = 'enemy'
-            pygame.time.wait(200)
-            break
-        elif enemy.health < 1:
-            winner = 'tortoise'
-            pygame.time.wait(200)
-            break
-
-    return(winner, tortoise.health, enemy.health)
-
-
-def gameOverScreen(screen, winner, tortoiseHealth, enemyHealth):
-    newScreen = pygame.Surface((WINDOWWIDTH, WINDOWHEIGHT))
-    userInput = Input()
-    if winner == 'tortoise':
-        loser = 'enemy'
-        verb = 'won'
-        mainColour = GREEN
-        accentColour = DARKGREEN
-    elif winner == 'enemy':
-        loser = 'tortoise'
-        verb = 'lost'
-        mainColour = RED
-        accentColour = DARKRED
-
-    newScreen.fill(mainColour)
-    titleSurf, titleRect = genText('You ' + verb + '!', None, WHITE, False, True, (int(WINDOWWIDTH / 2), int(WINDOWHEIGHT / 3)))
-    newScreen.blit(titleSurf, titleRect)
-    newScreen.set_alpha(5)
-
-    for i in range(60): # ANIMATE TRANSITION:
-        screen.blit(newScreen, (0, 0))
-        pygame.display.update()
-        checkForQuit()
-        FPSCLOCK.tick()
-
-    base = screen.copy()
-    playAgain = Button('Play again', None, (int(WINDOWWIDTH / 2) - 10, int(WINDOWHEIGHT / 3) * 2), 1, 0, 1)
-    quit = Button('Quit', None, (int(WINDOWWIDTH / 2) + 10, int(WINDOWHEIGHT / 3) * 2), 1, 0, 0)
-
-    while True:
-        userInput.get()
-        playAgain.simulate(screen, userInput)
-        if playAgain.isClicked:
-            return
-        quit.simulate(screen, userInput)
-        if quit.isClicked:
-            terminate()
-        checkForQuit()
-        pygame.display.update()
-        FPSCLOCK.tick()
-    pygame.time.wait(2000)
-
-        
-def genText(text, topLeftPos, colour, isTitle=0, isMega=0, centerPos=0):
-    if isTitle:
-        font = BIGFONT
-    elif isMega:
-        font = MEGAFONT
-    else: font = BASICFONT
-    surf = font.render(text, 1, colour)
-    rect = surf.get_rect()
-    if centerPos:
-        rect.center = centerPos
-    else:
-        rect.topleft = topLeftPos
-    return (surf, rect)
-
-
-def updateLiveElements(screen, turn):
-    turnSurf, turnRect = genText(str('Turn: ' + turn), (int(WINDOWWIDTH / 2), 50), WHITE, 1)
-    turnRect.centerx = int(WINDOWWIDTH / 2)
-    screen.blit(turnSurf, turnRect)
-    return screen
-    
-
-def checkForQuit():
-    for event in pygame.event.get(QUIT): # get all the QUIT events
-        terminate() # terminate if any QUIT events are present
-    for event in pygame.event.get(KEYUP): # get all the KEYUP events
-        if event.key == K_ESCAPE:
-            terminate() # terminate if the KEYUP event was for the Esc key
-        pygame.event.post(event) # put the other KEYUP event objects back
-
-
-def terminate():
-    pygame.quit()
-    sys.exit()
 
 
 
