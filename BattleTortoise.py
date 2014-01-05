@@ -117,9 +117,10 @@ def genText(text, topLeftPos, colour, isTitle=0, isMega=0, centerPos=0):
 
 
 def updateLiveElements(screen, turn):
-    turnSurf, turnRect = genText(str('Turn: ' + turn), (int(WINDOWWIDTH / 2), 50), WHITE, 1)
-    turnRect.centerx = int(WINDOWWIDTH / 2)
-    screen.blit(turnSurf, turnRect)
+    if turn == 'tortoise':
+        turnSurf, turnRect = genText(str('Make your move!'), (int(WINDOWWIDTH / 2), 50), WHITE, 1)
+        turnRect.centerx = int(WINDOWWIDTH / 2)
+        screen.blit(turnSurf, turnRect)
     return screen
 
 
@@ -397,6 +398,7 @@ class Enemy:
         self.timeOfLastHit = time.time() - 100
         self.pauseBeforeAttack = ENEMYWAITFRAMES
         self.idleAnimNum = 0
+        self.attackAnimNum = -1
 
     def simulate(self, turn, screen):
         self.handleImg()
@@ -414,14 +416,18 @@ class Enemy:
             self.draw(screen)
             return 'tortoise'
 
+
     def handleImg(self):
         if self.creature == 'BEAR':
-            if time.time() - FLASHREDTIME < self.timeOfLastHit:
-                self.img = BEAR['idleHitImg']
-                return
-            self.img = BEAR['idleAnim'][self.idleAnimNum]
-            self.idleAnimNum += 1
-            if self.idleAnimNum == 120: self.idleAnimNum = 0
+            # if time.time() - FLASHREDTIME < self.timeOfLastHit:
+            #     self.img = BEAR['idleHitImg']
+            #     return
+            if self.attackAnimNum < 250 and self.attackAnimNum < 1:
+                self.img = BEAR['attackAnim'][self.attackAnimNum]
+            else:
+                self.img = BEAR['idleAnim'][self.idleAnimNum]
+                self.idleAnimNum += 1
+                if self.idleAnimNum == 120: self.idleAnimNum = 0
 
     def draw(self, screen):
         screen.blit(self.img, self.rect)
@@ -462,7 +468,6 @@ class Enemy:
     def attack(self, screen):
         screenFreeze = screen.copy()
         frames = int(ATTACKANIMTIME / FPS)
-        print(str(frames))
         startx, starty = self.rect.topleft
         enemyx, enemyy = TORTOISESCREENPOS
         endx, endy = (enemyx + 40, enemyy - 200 + random.randint(-50, 50))
@@ -472,10 +477,19 @@ class Enemy:
         ystep = ((endy - starty) / frames)
         truex, truey = self.rect.topleft
         # go to enemy
+        self.attackAnimNum = -250
         while (int(truex), int(truey)) != endPos and (int(truex + 0.5), int(truey + 0.5)) != endPos and (int(truex - 0.5), int(truey - 0.5)) != endPos:
             truex, truey = truex + xstep, truey + ystep
             self.rect.topleft = (int(truex), int(truey))
             screen.blit(screenFreeze, (0, 0))
+            # ANIMATE
+            if self.attackAnimNum > -1 and self.attackAnimNum < 120:
+                self.img = BEAR['attackAnim'][self.attackAnimNum]
+            else:
+                self.img = BEAR['idleAnim'][self.idleAnimNum]
+                self.idleAnimNum += 1
+                if self.idleAnimNum > 119: self.idleAnimNum = 0
+            self.attackAnimNum += 1
             screen.blit(self.img, self.rect)
             pygame.display.update()
             checkForQuit()
@@ -484,6 +498,10 @@ class Enemy:
             truex, truey = truex - xstep, truey - ystep
             self.rect.topleft = (int(truex), int(truey))
             screen.blit(screenFreeze, (0, 0))
+            # ANIMATE
+            if self.attackAnimNum > -1 and self.attackAnimNum < 180:
+                self.img = BEAR['attackAnim'][self.attackAnimNum]
+                self.attackAnimNum += 1
             screen.blit(self.img, self.rect)
             pygame.display.update()
             checkForQuit()
