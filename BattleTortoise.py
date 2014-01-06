@@ -24,6 +24,8 @@ def runGame():
     skipTurnButton = Button('Skip turn', 0, (WINDOWWIDTH - GAP, GAP), 1, 0, 1)
     buttons = [skipTurnButton]
     turn = 'tortoise'
+    fadeInAlpha = 255 # fade in from previous screen
+    prevScreen = screen.copy()
     while True: # main game loop
         userInput.get()
         screen.blit(backgroundImg, (0,0))
@@ -41,6 +43,10 @@ def runGame():
                 turn = 'enemy'
         screen = updateLiveElements(screen, turn)
         
+        if fadeInAlpha > 0:
+            prevScreen.set_alpha(fadeInAlpha)
+            screen.blit(prevScreen, (0, 0))
+            fadeInAlpha -= 10
         
         pygame.display.update()
         checkForQuit()
@@ -161,6 +167,10 @@ WINDOWHEIGHT = 480
 screen = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
 pygame.display.set_caption('Battle tortoise')
 
+loadingScreen = pygame.image.load('assets/loadingScreen.png').convert_alpha()
+screen.blit(loadingScreen, (0, 0))
+pygame.display.update()
+
 BASICFONT = pygame.font.Font('freesansbold.ttf', 12)
 BIGFONT   = pygame.font.Font('fontTitle.ttf', 25)
 MEGAFONT  = pygame.font.Font('fontTitle.ttf', 42)
@@ -170,17 +180,20 @@ ENEMYSCREENPOS =    (int((WINDOWWIDTH / 3) * 2), int(WINDOWHEIGHT / 8))
 GAP = 5
 FLASHREDTIME = 0.2
 ATTACKANIMTIME = 20000 # in milliseconds
-ENEMYWAITFRAMES = 10 # pause after turn begins before enemy attacks
+ENEMYWAITFRAMES = 20 # pause after turn begins before enemy attacks
+BLOCKEFFECTIVENESS = 4 # smaller number = more effective
+RANDOMDAMAGEMARGIN = 4
+MISSCHANCE = 2
 
 backgroundImg = pygame.image.load('beachBackground.png').convert()
 tortoiseIdleImg = pygame.image.load('tortoiseIdle1.png').convert_alpha()
 tortoiseIdleHitImg = pygame.image.load('tortoiseIdle1Hit.png').convert_alpha()
 tortoiseBlockImg = pygame.image.load('tortoiseBlock1.png').convert_alpha()
 tortoiseBlockHitImg = pygame.image.load('tortoiseBlock1Hit.png').convert_alpha()
-bearIdleImg = pygame.image.load('bearIdle1.png').convert_alpha()
-bearIdleHitImg = pygame.image.load('bearIdle1Hit.png').convert_alpha()
 
 
+tortoiseIdle = loadAnimationFiles('tortoiseIdle', 'tortoiseIdle', 119)
+tortoiseAttack = loadAnimationFiles('tortoiseAttack', 'tortoiseAttack', 179)
 bearIdle = loadAnimationFiles('bearIdle', 'bear_idle', 120)
 bearAttack = loadAnimationFiles('bearAttack', 'bear_attack', 180)
 
@@ -204,14 +217,12 @@ BROWN     = (139,  69,  19, 255)
 BLOCKKEY = K_SPACE
 
 # ALL MOBS STATS
-TORTOISE = {'health': 100, 'strength': 3, 'idleImg': tortoiseIdleImg, 'blockImg': tortoiseBlockImg, 
-            'idleHitImg': tortoiseIdleHitImg, 'blockHitImg': tortoiseBlockHitImg}
-BEAR = {'health': 100, 'strength': 5, 'idleAnim': bearIdle, 'attackAnim': bearAttack, 'idleHitImg': bearIdleHitImg, 
-        'attacks' : ['scratch', 'claw', 'bite']}
+TORTOISE = {'health': 100, 'strength': 3, 'idleAnim': tortoiseIdle, 'attackAnim': tortoiseAttack, 
+            'blockImg': tortoiseBlockImg, 'idleHitImg': tortoiseIdleHitImg, 'blockHitImg': tortoiseBlockHitImg}
+BEAR     = {'health': 100, 'strength': 5, 'idleAnim': bearIdle, 'attackAnim': bearAttack,  
+            'attacks' : ['scratch', 'claw', 'bite']}
 
-BLOCKEFFECTIVENESS = 4 # smaller number = more effective
-RANDOMDAMAGEMARGIN = 4
-MISSCHANCE = 2
+
     
 
 #######################################################################################################
@@ -225,7 +236,7 @@ class Tortoise :
     incomingDamage = 0
 
     def __init__(self):
-        self.img = TORTOISE['idleImg']
+        self.img = TORTOISE['idleAnim'][0]
         self.rect = Rect((TORTOISESCREENPOS), (self.img.get_size()))
         self.health = TORTOISE['health']
         self.attacks = ['bite', 'headbutt']
@@ -233,6 +244,8 @@ class Tortoise :
         self.isBlocking = False
         self.initUI()
         self.timeOfLastHit = time.time() - 100
+        self.idleAnimNum = 0
+        self.attackAnimNum = -1
 
     def simulate(self, turn, screen, userInput):
         #SIMULATE
@@ -304,13 +317,14 @@ class Tortoise :
             startx, starty = self.rect.topleft
             enemyx, enemyy = ENEMYSCREENPOS
             endx, endy = (enemyx - 50, enemyy - 5)
-            endy +=  random.randint(-50, 200)
+            endy +=  random.randint(100, 150)
             startPos = startx, starty
             endPos = endx, endy
             xstep = ((endx - startx) / frames)
             ystep = ((endy - starty) / frames)
             truex, truey = self.rect.topleft
             # go to enemy
+            self.attackAnimNum = -223
             while (int(truex), int(truey)) != endPos and (int(truex + 0.5), int(truey + 0.5)) != endPos and (int(truex - 0.5), int(truey - 0.5)) != endPos:
                 truex, truey= truex + xstep, truey + ystep
                 self.rect.topleft = (int(truex), int(truey))
@@ -318,6 +332,14 @@ class Tortoise :
                 screen.blit(self.img, self.rect)
                 pygame.display.update()
                 checkForQuit()
+                # ANIMATE
+                if self.attackAnimNum > -1 and self.attackAnimNum < 180:
+                    self.img = TORTOISE['attackAnim'][self.attackAnimNum]
+                else:
+                    self.img = TORTOISE['idleAnim'][self.idleAnimNum]
+                    self.idleAnimNum += 1
+                    if self.idleAnimNum > 118: self.idleAnimNum = 0
+                self.attackAnimNum += 1
             # return to startPos
             while (int(truex), int(truey)) != startPos and (int(truex + 0.5), int(truey + 0.5)) != startPos and (int(truex - 0.5), int(truey - 0.5)) != startPos:
                 truex, truey= truex - xstep, truey - ystep
@@ -357,20 +379,21 @@ class Tortoise :
                     self.isBlocking = True
                     return
         self.isBlocking = False
-        self.img = TORTOISE['idleImg']
 
     def handleImg(self):
-        if time.time() - FLASHREDTIME < self.timeOfLastHit:
-            if self.isBlocking:
-                self.img = TORTOISE['blockHitImg']
-                return
-            else:
-                self.img = TORTOISE['idleHitImg']
-                return
-        elif self.isBlocking:
+        # if time.time() - FLASHREDTIME < self.timeOfLastHit:
+        #     if self.isBlocking:
+        #         self.img = TORTOISE['blockHitImg']
+        #         return
+        #     else:
+        #         self.img = TORTOISE['idleHitImg']
+        #         return
+        if self.isBlocking:
             self.img = TORTOISE['blockImg']
         else:
-            self.img = TORTOISE['idleImg']
+            self.img = TORTOISE['idleAnim'][self.idleAnimNum]
+            self.idleAnimNum += 1
+            if self.idleAnimNum == 119: self.idleAnimNum = 0
 
 
 #######################################################################################################
@@ -422,7 +445,7 @@ class Enemy:
             # if time.time() - FLASHREDTIME < self.timeOfLastHit:
             #     self.img = BEAR['idleHitImg']
             #     return
-            if self.attackAnimNum < 250 and self.attackAnimNum < 1:
+            if self.attackAnimNum < 180 and self.attackAnimNum > 1:
                 self.img = BEAR['attackAnim'][self.attackAnimNum]
             else:
                 self.img = BEAR['idleAnim'][self.idleAnimNum]
