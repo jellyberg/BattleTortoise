@@ -178,6 +178,7 @@ MEGAFONT  = pygame.font.Font('fontTitle.ttf', 42)
 TORTOISESCREENPOS = (int(WINDOWWIDTH / 4),     int((WINDOWHEIGHT / 3) * 2))
 ENEMYSCREENPOS =    (int((WINDOWWIDTH / 3) * 2), int(WINDOWHEIGHT / 8))
 GAP = 5
+STATHOOPSIZE = 30
 FLASHREDTIME = 0.2
 ATTACKANIMTIME = 20000 # in milliseconds
 ENEMYWAITFRAMES = 20 # pause after turn begins before enemy attacks
@@ -241,6 +242,9 @@ class Tortoise :
         self.health = TORTOISE['health']
         self.attacks = ['bite', 'headbutt']
         self.strength = 3
+        self.intelligence = 5
+        self.hoopStats = [self.strength, self.intelligence]
+        self.hoopStatsNames = ['strength', 'intelligence']
         self.isBlocking = False
         self.initUI()
         self.timeOfLastHit = time.time() - 100
@@ -266,6 +270,20 @@ class Tortoise :
         self.healthBarRed = pygame.Surface((98, 8))
         self.healthBarRed.fill(RED)
         self.healthText = Button('Tortoise\'s health:', 0, (5, WINDOWHEIGHT - 35))
+
+        # STAT HOOPS
+        self.statHoop = pygame.Surface((STATHOOPSIZE, STATHOOPSIZE))
+        self.halfhoop = int(STATHOOPSIZE / 2)
+        pygame.draw.circle(self.statHoop, LIGHTGREY, (self.halfhoop, self.halfhoop), self.halfhoop)
+        pygame.draw.circle(self.statHoop, BLUE, (self.halfhoop, self.halfhoop), self.halfhoop, 2)
+        self.statHoop.set_colorkey(BLACK)
+        self.statHoopLabels = []
+        for statName in self.hoopStatsNames:
+            statName = statName.capitalize()
+            surf, rect = genText(statName, (0, 0), DARKGREY, 1, 0, 0)
+            surf = pygame.transform.rotate(surf, 90)
+            rect = surf.get_rect()
+            self.statHoopLabels.append([surf, rect])
 
         # DAMAGE NUMBERS
         self.damageNums = []
@@ -295,6 +313,18 @@ class Tortoise :
         screen.blit(self.healthBar, (5, WINDOWHEIGHT - 15))
         self.healthText.simulate(screen, None)
         self.lastHealth = self.health
+
+        # STAT HOOPS
+        for i in range(0, len(self.hoopStats)):
+            x = (i + 1) * GAP + STATHOOPSIZE * i
+            y = WINDOWHEIGHT - 80
+            screen.blit(self.statHoop, (x, y))
+            num = self.hoopStats[i]
+            numSurf, numRect = genText(str(num), (0, 0), BLACK, 1, 0, (x + self.halfhoop, y + self.halfhoop))
+            screen.blit(numSurf, numRect)
+            self.statHoopLabels[i][1].bottomleft = (x, y - GAP)
+            screen.blit(self.statHoopLabels[i][0], self.statHoopLabels[i][1])
+
 
         # DAMAGE NUMBERS
         for num in self.damageNums:
