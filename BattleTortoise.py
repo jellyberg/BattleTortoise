@@ -4,7 +4,7 @@
 #######################################################################################################
 #######################################################################################################
 
-import random, pygame, sys, time
+import random, pygame, sys, time, math
 from pygame.locals import *
 pygame.init()
 
@@ -17,12 +17,13 @@ def main():
 
 def runGame():
     global screen, turn
-    
+
     userInput = Input()
     tortoise = Tortoise()
     enemy = Enemy('BEAR', random.randint(3, 5), 50)
-    skipTurnButton = Button('Skip turn', 0, (WINDOWWIDTH - GAP, GAP), 1, 0, 1)
-    buttons = [skipTurnButton]
+    skipTurnButton = Button('Skip turn', 0, (WINDOWWIDTH - 200, GAP), 1, 0, 1)
+    testButton = Button('Tester!', 0, (WINDOWWIDTH - 200, 300), 1, 0, 1, 'And there you have it, a test. And it works...perfectly!')
+    buttons = [skipTurnButton, testButton]
     turn = 'tortoise'
     fadeInAlpha = 255 # fade in from previous screen
     prevScreen = screen.copy()
@@ -47,7 +48,7 @@ def runGame():
             prevScreen.set_alpha(fadeInAlpha)
             screen.blit(prevScreen, (0, 0))
             fadeInAlpha -= 10
-        
+
         pygame.display.update()
         checkForQuit()
         FPSCLOCK.tick(FPS)
@@ -107,11 +108,13 @@ def gameOverScreen(screen, winner, tortoiseHealth, enemyHealth):
     pygame.time.wait(2000)
 
         
-def genText(text, topLeftPos, colour, isTitle=0, isMega=0, centerPos=0):
+def genText(text, topLeftPos, colour, isTitle=0, isMega=0, centerPos=0, isPretty=0):
     if isTitle:
         font = BIGFONT
     elif isMega:
         font = MEGAFONT
+    elif isPretty:
+        font = PRETTYFONT
     else: font = BASICFONT
     surf = font.render(text, 1, colour)
     rect = surf.get_rect()
@@ -172,6 +175,7 @@ screen.blit(loadingScreen, (0, 0))
 pygame.display.update()
 
 BASICFONT = pygame.font.Font('freesansbold.ttf', 12)
+PRETTYFONT = pygame.font.Font('fontTitle.ttf', 12)
 BIGFONT   = pygame.font.Font('fontTitle.ttf', 25)
 MEGAFONT  = pygame.font.Font('fontTitle.ttf', 42)
 
@@ -179,6 +183,7 @@ TORTOISESCREENPOS = (int(WINDOWWIDTH / 4),     int((WINDOWHEIGHT / 3) * 2))
 ENEMYSCREENPOS =    (int((WINDOWWIDTH / 3) * 2), int(WINDOWHEIGHT / 8))
 GAP = 5
 STATHOOPSIZE = 30
+TOOLTIPWORDSPERLINE = 6  # subtract 1!
 FLASHREDTIME = 0.2
 ATTACKANIMTIME = 20000 # in milliseconds
 ENEMYWAITFRAMES = 20 # pause after turn begins before enemy attacks
@@ -213,6 +218,7 @@ DARKGREEN = (  0, 155,   0, 255)
 DARKGREY  = ( 60,  60,  60, 255)
 LIGHTGREY = (180, 180, 180, 255)
 BROWN     = (139,  69,  19, 255)
+CREAM     = (255, 255, 204,   0)
 
 # KEYBINDINGS
 BLOCKKEY = K_SPACE
@@ -280,7 +286,7 @@ class Tortoise :
         self.statHoopLabels = []
         for statName in self.hoopStatsNames:
             statName = statName.capitalize()
-            surf, rect = genText(statName, (0, 0), DARKGREY, 1, 0, 0)
+            surf, rect = genText(statName, (0, 0), DARKGREY, 0, 0, 0, 1)
             surf = pygame.transform.rotate(surf, 90)
             rect = surf.get_rect()
             self.statHoopLabels.append([surf, rect])
@@ -322,7 +328,7 @@ class Tortoise :
             num = self.hoopStats[i]
             numSurf, numRect = genText(str(num), (0, 0), BLACK, 1, 0, (x + self.halfhoop, y + self.halfhoop))
             screen.blit(numSurf, numRect)
-            self.statHoopLabels[i][1].bottomleft = (x, y - GAP)
+            self.statHoopLabels[i][1].bottomleft = (x + GAP * 2, y - GAP)
             screen.blit(self.statHoopLabels[i][0], self.statHoopLabels[i][1])
 
 
@@ -584,7 +590,7 @@ class Enemy:
         
 
 class Button:
-    def __init__(self, text, style, screenPos, isClickable=0, isTitle=0, screenPosIsTopRight=0):
+    def __init__(self, text, style, screenPos, isClickable=0, isTitle=0, screenPosIsTopRight=0, tooltip=None):
         self.text, self.style, self.screenPos, self.isClickable, self.posIsTopRight = \
         (text, style, screenPos, isClickable, screenPosIsTopRight)
         if isTitle:
@@ -609,9 +615,14 @@ class Button:
             self.clickSurf.fill(DARKRED)
             self.clickSurf.blit(self.textSurf, (int(self.padding /2), int(self.padding /2)))
             self.isClicked = False
+        self.hasTooltip = False
+        if tooltip:
+            self.hasTooltip = True
+            self.tooltip = Tooltip(tooltip, (self.rect.left + GAP, self.rect.top))
 
     def simulate(self, screen, userInput):
-        if self.isClickable: self.handleClicks(userInput)
+        if self.isClickable or self.hasTooltip: self.handleClicks(userInput)
+        if self.hasTooltip: self.tooltip.simulate(screen, self.isHovered)
         self.draw(screen)
 
     def draw(self, screen):
@@ -623,15 +634,81 @@ class Button:
 
     def handleClicks(self, userInput=None):
         self.isClicked = False
+        self.isHovered = False
         if self.rect.collidepoint(userInput.mousePos):
             if userInput.mousePressed == True:
                 self.currentSurf = self.clickSurf
             else:
                 self.currentSurf = self.hoverSurf
+                self.isHovered = True
         else:
             self.currentSurf = self.buttonSurf
         if userInput.mouseUnpressed == True and self.rect.collidepoint(userInput.mousePos):
             self.isClicked = True
+
+
+#######################################################################################################
+
+
+class Tooltip:
+    def __init__(self, text, pos):
+        self.pos = pos
+        self.x, self.y = pos
+        self.alpha = 255
+        # GET TEXT OBJS
+        self.textObjs, self.textHeight = self.genTextObjs(text)
+        self.textWidth = self.getLongestTextLine(self.textObjs)
+        # CREAT SURF
+        self.surf = pygame.Surface((self.textWidth + GAP * 3, self.textHeight + GAP * 2))
+        pygame.draw.rect(self.surf, CREAM, (GAP, 0, self.surf.get_width() - GAP, self.surf.get_height()))
+        pygame.draw.polygon(self.surf, CREAM, [(0, 5), (GAP, 3), (GAP, 7)])
+        for i in range(len(self.textObjs)):
+            self.surf.blit(self.textObjs[i][0], self.textObjs[i][1])
+        
+
+    def simulate(self, screen, isHovered):
+        if isHovered:
+            if self.alpha < 255: self.alpha += 20
+        else:
+            self.alpha -= 20
+        self.surf.set_alpha(self.alpha)
+        screen.blit(self.surf, self.pos)
+
+
+    def genTextObjs(self, text):
+        wordList = text.split()
+        extraWords = wordList[:]
+        numLines = int(math.ceil(len(wordList) / TOOLTIPWORDSPERLINE))
+        newText = [] # a list of strings, each line having one string
+        textObjs = [] # a list of two item lists, each list having a surf and rect object for a line
+        # GENERATE LIST OF STRINGS
+        for lineNum in range(0, numLines):
+            line = ''
+            for wordNum in range(0, TOOLTIPWORDSPERLINE - 1):
+                currentWord = wordList[lineNum * (TOOLTIPWORDSPERLINE - 1) + wordNum]
+                line = line + currentWord + ' '
+                extraWords.remove(currentWord)
+            newText.append(line)
+        lastLine = ' '.join(extraWords)
+        newText.append(lastLine)
+        # CONVERT STRINGS TO TEXT SURFS AND RECTS
+        testText, testRect = genText(newText[0], (0, 0), BLACK, 0, 0, 0, 0)
+        textHeight = testText.get_height()
+        totalHeight = textHeight * len(newText) + GAP * len(newText)
+        for lineNum in range(len(newText)):
+            surf, rect = genText(newText[lineNum], (GAP * 2, textHeight * lineNum + GAP * lineNum), DARKGREY,0,0,0,0)
+            textObjs.append([surf, rect])
+        return textObjs, totalHeight
+
+
+    def getLongestTextLine(self, textObjs):
+        longestLineWidth = 0
+        for i in range(len(textObjs)):
+            if textObjs[i][1].width > longestLineWidth:
+                longestLineWidth = textObjs[i][1].width
+        return longestLineWidth
+
+
 
 
 #######################################################################################################
