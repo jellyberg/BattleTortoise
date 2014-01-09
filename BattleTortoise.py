@@ -22,8 +22,7 @@ def runGame():
     tortoise = Tortoise()
     enemy = Enemy('BEAR', random.randint(3, 5), 50)
     skipTurnButton = Button('Skip turn', 0, (WINDOWWIDTH - 200, GAP), 1, 0, 1)
-    testButton = Button('Tester!', 0, (WINDOWWIDTH - 200, 300), 1, 0, 1, 'And there you have it, a test. And it works...perfectly!')
-    buttons = [skipTurnButton, testButton]
+    buttons = [skipTurnButton]
     turn = 'tortoise'
     fadeInAlpha = 255 # fade in from previous screen
     prevScreen = screen.copy()
@@ -367,6 +366,7 @@ class Tortoise :
                 screen.blit(screenFreeze, (0, 0))
                 screen.blit(self.img, self.rect)
                 pygame.display.update()
+                FPSCLOCK.tick()
                 checkForQuit()
                 # ANIMATE
                 if self.attackAnimNum > -1 and self.attackAnimNum < 180:
@@ -383,6 +383,7 @@ class Tortoise :
                 screen.blit(screenFreeze, (0, 0))
                 screen.blit(self.img, self.rect)
                 pygame.display.update()
+                FPSCLOCK.tick()
                 checkForQuit()
 
             # ATTACK TEXT
@@ -417,13 +418,6 @@ class Tortoise :
         self.isBlocking = False
 
     def handleImg(self):
-        # if time.time() - FLASHREDTIME < self.timeOfLastHit:
-        #     if self.isBlocking:
-        #         self.img = TORTOISE['blockHitImg']
-        #         return
-        #     else:
-        #         self.img = TORTOISE['idleHitImg']
-        #         return
         if self.isBlocking:
             self.img = TORTOISE['blockImg']
         else:
@@ -551,6 +545,7 @@ class Enemy:
             self.attackAnimNum += 1
             screen.blit(self.img, self.rect)
             pygame.display.update()
+            FPSCLOCK.tick()
             checkForQuit()
         # return to startPos
         while (int(truex), int(truey)) != startPos and (int(truex + 0.5), int(truey + 0.5)) != startPos and (int(truex - 0.5), int(truey - 0.5)) != startPos:
@@ -563,6 +558,7 @@ class Enemy:
                 self.attackAnimNum += 1
             screen.blit(self.img, self.rect)
             pygame.display.update()
+            FPSCLOCK.tick()
             checkForQuit()
         #  DEAL DAMAGE
         attackNum = random.randint(0, self.numAttacks - 1)
@@ -661,18 +657,20 @@ class Tooltip:
         # CREAT SURF
         self.surf = pygame.Surface((self.textWidth + GAP * 3, self.textHeight + GAP * 2))
         pygame.draw.rect(self.surf, CREAM, (GAP, 0, self.surf.get_width() - GAP, self.surf.get_height()))
-        pygame.draw.polygon(self.surf, CREAM, [(0, 5), (GAP, 3), (GAP, 7)])
+        pygame.draw.polygon(self.surf, CREAM, [(0, 10), (GAP, 5), (GAP, 15)])
         for i in range(len(self.textObjs)):
             self.surf.blit(self.textObjs[i][0], self.textObjs[i][1])
+        self.surf.set_colorkey(BLACK)
         
 
     def simulate(self, screen, isHovered):
         if isHovered:
             if self.alpha < 255: self.alpha += 20
-        else:
+        elif self.alpha > 0:
             self.alpha -= 20
-        self.surf.set_alpha(self.alpha)
-        screen.blit(self.surf, self.pos)
+        if self.alpha > 0:
+            self.surf.set_alpha(self.alpha)
+            screen.blit(self.surf, self.pos)
 
 
     def genTextObjs(self, text):
@@ -694,9 +692,9 @@ class Tooltip:
         # CONVERT STRINGS TO TEXT SURFS AND RECTS
         testText, testRect = genText(newText[0], (0, 0), BLACK, 0, 0, 0, 0)
         textHeight = testText.get_height()
-        totalHeight = textHeight * len(newText) + GAP * len(newText)
+        totalHeight = textHeight * (len(newText) - 1) + GAP * (len(newText) - 1)
         for lineNum in range(len(newText)):
-            surf, rect = genText(newText[lineNum], (GAP * 2, textHeight * lineNum + GAP * lineNum), DARKGREY,0,0,0,0)
+            surf, rect = genText(newText[lineNum], (GAP * 2, textHeight * lineNum + GAP * lineNum + GAP), DARKGREY,0,0,0,0)
             textObjs.append([surf, rect])
         return textObjs, totalHeight
 
